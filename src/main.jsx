@@ -1,8 +1,12 @@
 // Intercept global fetch to prefix relative API paths with VITE_API_URL during deployment
 const originalFetch = window.fetch;
 window.fetch = (input, init) => {
-  const apiUrl = import.meta.env.VITE_API_URL;
+  let apiUrl = import.meta.env.VITE_API_URL;
   if (apiUrl && typeof input === 'string' && input.startsWith('/api/')) {
+    // Automatically add https:// if missing to prevent relative path request hijacking
+    if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+      apiUrl = `https://${apiUrl}`;
+    }
     const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
     input = `${cleanApiUrl}${input}`;
   }

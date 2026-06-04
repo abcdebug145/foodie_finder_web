@@ -85,7 +85,8 @@ export function NotificationsProvider({ children }) {
       wsUrl = `${import.meta.env.VITE_WS_URL}?token=${token}`;
     } else if (import.meta.env.VITE_API_URL) {
       const apiBase = import.meta.env.VITE_API_URL.replace(/\/$/, ''); // Remove trailing slash
-      const wsProtocol = apiBase.startsWith('https://') ? 'wss://' : 'ws://';
+      // Default to wss:// unless the endpoint is explicitly unsecure http:// (like localhost)
+      const wsProtocol = apiBase.startsWith('http://') ? 'ws://' : 'wss://';
       const wsHost = apiBase.replace(/^https?:\/\//, '');
       wsUrl = `${wsProtocol}${wsHost}/api/v1/notifications/ws?token=${token}`;
     } else {
