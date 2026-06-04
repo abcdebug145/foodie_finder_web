@@ -437,7 +437,10 @@ export default function ChatBot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           query: q, 
-          history,
+          history: messages.map(m => ({
+            role: m.role,
+            content: m.content
+          })),
           city: activeCity,
           latitude: activeLat,
           longitude: activeLon,
