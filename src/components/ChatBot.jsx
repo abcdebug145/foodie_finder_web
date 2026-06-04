@@ -264,11 +264,17 @@ function RestaurantCard({ restaurant }) {
                 borderRadius: 'var(--radius-md)', marginBottom: expanded ? 8 : 0,
                 letterSpacing: '0.4px', textTransform: 'uppercase',
                 transition: 'background 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
               }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.1)'}
               onMouseLeave={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.05)'}
             >
-              {expanded ? '▲ Ẩn review' : '▼ Xem review'}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '10px', height: '10px', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+              {expanded ? 'Ẩn review' : 'Xem review'}
             </button>
             {expanded && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -293,7 +299,7 @@ function RestaurantCard({ restaurant }) {
         <Link
           to={`/restaurants/${restaurant.id}`}
           style={{
-            display: 'block', marginTop: 10, textAlign: 'center',
+            display: 'flex', marginTop: 10, justifyContent: 'center', alignItems: 'center',
             fontSize: 10.5, fontWeight: 800, color: 'var(--primary)',
             padding: '6px 0',
             border: '1px solid var(--primary)',
@@ -302,11 +308,15 @@ function RestaurantCard({ restaurant }) {
             transition: 'background 0.2s',
             fontFamily: 'var(--font-mono)',
             letterSpacing: '0.4px',
+            gap: '4px',
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(232, 153, 81, 0.08)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
-          Xem chi tiết →
+          Xem chi tiết
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '10px', height: '10px' }}>
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </Link>
       </div>
     </div>
@@ -370,7 +380,7 @@ export default function ChatBot() {
     {
       id: 0,
       role: 'assistant',
-      content: 'Xin chào! 👋 Mình là Foodie Bot – trợ lý ẩm thực của Foodie Finder.\n\nBạn đang thèm gì? Hỏi mình đi, mình sẽ gợi ý nhà hàng ngon đúng gu cho bồ tèo nha! 🍜',
+      content: 'Xin chào! 👋 Mình là Foodie Bot – trợ lý ẩm thực của Foodie Homie.\n\nBạn đang thèm gì? Hỏi mình đi, mình sẽ gợi ý nhà hàng ngon đúng gu cho bồ tèo nha! 🍜',
       restaurants: [],
     }
   ]);
@@ -526,7 +536,7 @@ export default function ChatBot() {
             flexShrink: 0,
           }}>
             <img
-              src="https://img.freepik.com/premium-vector/food-robot-logo-design-vector-illustration_685330-159.jpg"
+              src="/Gemini_Generated_Image_9vesi09vesi09ves.png"
               alt="Foodie Bot"
               style={{
                 width: 38,
@@ -553,12 +563,15 @@ export default function ChatBot() {
                 color: 'var(--text-dark)', cursor: 'pointer',
                 width: 30, height: 30, borderRadius: '50%',
                 display: 'grid', placeItems: 'center',
-                fontSize: 14, transition: 'background 0.2s',
+                transition: 'background 0.2s',
               }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.1)'}
               onMouseLeave={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.05)'}
             >
-              ✕
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
 
@@ -742,7 +755,7 @@ export default function ChatBot() {
             </svg>
           ) : (
             <img
-              src="https://img.freepik.com/premium-vector/food-robot-logo-design-vector-illustration_685330-159.jpg"
+              src="/Gemini_Generated_Image_9vesi09vesi09ves.png"
               alt="Foodie Bot Logo"
               style={{
                 width: '100%',

@@ -45,9 +45,8 @@ function RecoCard({ restaurant, rank }) {
         border: '1.5px solid var(--border)',
         borderRadius: '14px',
         overflow: 'hidden',
-        minWidth: '200px',
-        maxWidth: '200px',
-        flexShrink: 0,
+        width: '100%',
+        height: '100%',
         transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1), border-color 0.2s, box-shadow 0.2s',
         cursor: 'pointer',
         position: 'relative',
@@ -64,7 +63,7 @@ function RecoCard({ restaurant, rank }) {
       }}
     >
       {/* Image */}
-      <div style={{ position: 'relative', width: '100%', height: '120px', overflow: 'hidden', background: 'var(--bg-subtle)' }}>
+      <div style={{ position: 'relative', width: '100%', height: '160px', overflow: 'hidden', background: 'var(--bg-subtle)' }}>
         <img
           src={restaurant.img_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70'}
           alt={restaurant.name}
@@ -117,13 +116,13 @@ function RecoCard({ restaurant, rank }) {
       </div>
 
       {/* Info */}
-      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+      <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         <p style={{
           margin: 0,
-          fontSize: '13px',
+          fontSize: '14px',
           fontWeight: '800',
           color: 'var(--text-dark)',
-          lineHeight: '1.35',
+          lineHeight: '1.4',
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
@@ -149,22 +148,30 @@ function RecoCard({ restaurant, rank }) {
 
         {/* Address */}
         {restaurant.address && (
-          <p style={{
+          <div style={{
             margin: 0,
             fontSize: '11px',
             color: 'var(--text-muted)',
-            display: '-webkit-box',
-            WebkitLineClamp: 1,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '4px',
           }}>
-            📍 {restaurant.address}
-          </p>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px', color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }}>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}>{restaurant.address}</span>
+          </div>
         )}
 
         {/* Tags */}
         {tags.length > 0 && (
-          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: 'auto', paddingTop: '4px' }}>
             {tags.map(tag => (
               <span key={tag} style={{
                 fontSize: '9.5px',
@@ -190,18 +197,17 @@ function RecoCard({ restaurant, rank }) {
 function RecoSkeleton() {
   return (
     <div style={{
-      minWidth: '200px',
-      maxWidth: '200px',
-      flexShrink: 0,
+      width: '100%',
+      height: '100%',
       borderRadius: '14px',
       overflow: 'hidden',
       background: 'var(--bg-light)',
       border: '1.5px solid var(--border)',
     }}>
-      <div style={{ width: '100%', height: '120px', background: 'var(--bg-subtle)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: '100%', height: '160px', background: 'var(--bg-subtle)', position: 'relative', overflow: 'hidden' }}>
         <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
       </div>
-      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ height: '32px', borderRadius: '6px', background: 'var(--bg-subtle)', position: 'relative', overflow: 'hidden' }}>
           <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
         </div>
@@ -351,10 +357,18 @@ export default function RecommendationSection({ city }) {
             border: '1.5px solid rgba(232,153,81,0.25)',
             display: 'grid',
             placeItems: 'center',
-            fontSize: '15px',
             flexShrink: 0,
           }}>
-            {isColdStart ? '🔥' : '✨'}
+            {isColdStart ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px', color: 'var(--primary)' }}>
+                <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px', color: 'var(--primary)' }}>
+                <path d="M9 11.5l1.5-3L13.5 7l-3-1.5-1.5-3-1.5 3-3 1.5 3 1.5zm11 5.5l-1.5-3-1.5 3-3 1.5 3 1.5 1.5 3 1.5-3 3-1.5zM19 4.5l-1-2-1 2-2 1 2 1 1 2 1-2 2-1z" />
+              </svg>
+            )}
           </div>
           <div>
             <h3 style={{
@@ -389,6 +403,8 @@ export default function RecommendationSection({ city }) {
                 padding: '5px 10px',
                 borderRadius: '8px',
                 cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
                 transition: 'all 0.2s',
                 fontFamily: 'var(--font-mono)',
               }}
@@ -402,7 +418,10 @@ export default function RecommendationSection({ city }) {
               }}
               title="Xóa lịch sử và làm mới gợi ý"
             >
-              ↺ Reset thị hiếu
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '11px', height: '11px', marginRight: '4px' }}>
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+              Reset thị hiếu
             </button>
           )}
           <span style={{
@@ -423,29 +442,64 @@ export default function RecommendationSection({ city }) {
       <div
         style={{
           position: 'relative',
-          // Fade edges
-          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 94%, transparent 100%)',
-          maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 94%, transparent 100%)',
+          paddingBottom: '8px',
         }}
       >
+        <style>{`
+          .reco-rail::-webkit-scrollbar {
+            height: 6px;
+          }
+          .reco-rail::-webkit-scrollbar-track {
+            background: rgba(42, 29, 25, 0.05);
+            border-radius: 10px;
+          }
+          .reco-rail::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+          }
+          .reco-rail::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+          }
+        `}</style>
         <div
           ref={railRef}
+          className="reco-rail"
           style={{
             display: 'flex',
-            gap: '12px',
+            gap: '16px',
             overflowX: 'auto',
-            paddingBottom: '6px',
+            paddingBottom: '12px',
             paddingLeft: '4px',
             paddingRight: '24px',
             scrollSnapType: 'x mandatory',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
           }}
         >
           {loading
-            ? Array.from({ length: 6 }).map((_, i) => <RecoSkeleton key={i} />)
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div 
+                  key={i} 
+                  style={{ 
+                    scrollSnapAlign: 'start',
+                    width: 'calc((100% - 64px) / 4.5)',
+                    minWidth: '240px',
+                    flexShrink: 0,
+                    display: 'flex',
+                  }}
+                >
+                  <RecoSkeleton />
+                </div>
+              ))
             : restaurants.map((r, i) => (
-                <div key={r.id} style={{ scrollSnapAlign: 'start' }}>
+                <div 
+                  key={r.id} 
+                  style={{ 
+                    scrollSnapAlign: 'start',
+                    width: 'calc((100% - 64px) / 4.5)',
+                    minWidth: '240px',
+                    flexShrink: 0,
+                    display: 'flex',
+                  }}
+                >
                   <RecoCard restaurant={r} rank={i + 1} />
                 </div>
               ))

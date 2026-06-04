@@ -701,7 +701,11 @@ export default function RestaurantDetail() {
               background: 'var(--bg-subtle)'
             }}>
               <h3 style={{ margin: 0, fontWeight: 900, textTransform: 'uppercase', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📍 Bản đồ đường đi - {restaurant.name}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '16px', height: '16px', color: 'var(--primary)' }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                Bản đồ đường đi - {restaurant.name}
               </h3>
               <button
                 onClick={() => setShowMap(false)}
@@ -742,7 +746,11 @@ export default function RestaurantDetail() {
                 </MapContainer>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', padding: '40px', color: 'var(--text-dark)', textAlign: 'center' }}>
-                  <span style={{ fontSize: '32px' }}>🗺️</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '48px', height: '48px', color: 'var(--text-muted)' }}>
+                    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                    <line x1="9" y1="3" x2="9" y2="18" />
+                    <line x1="15" y1="6" x2="15" y2="21" />
+                  </svg>
                   <strong style={{ fontWeight: 800 }}>Chưa có tọa độ bản đồ</strong>
                   <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-muted)', maxWidth: '300px' }}>
                     Quán ăn này hiện chưa được cập nhật tọa độ GPS (kinh độ, vĩ độ) trên hệ thống.
