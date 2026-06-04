@@ -79,9 +79,20 @@ export function NotificationsProvider({ children }) {
     const token = localStorage.getItem('ff_token');
     if (!token) return;
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const wsHost = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-    const wsUrl = `${wsProtocol}${wsHost}/api/v1/notifications/ws?token=${token}`;
+    // Configure WebSocket URL dynamically for deployment
+    let wsUrl = '';
+    if (import.meta.env.VITE_WS_URL) {
+      wsUrl = `${import.meta.env.VITE_WS_URL}?token=${token}`;
+    } else if (import.meta.env.VITE_API_URL) {
+      const apiBase = import.meta.env.VITE_API_URL.replace(/\/$/, ''); // Remove trailing slash
+      const wsProtocol = apiBase.startsWith('https://') ? 'wss://' : 'ws://';
+      const wsHost = apiBase.replace(/^https?:\/\//, '');
+      wsUrl = `${wsProtocol}${wsHost}/api/v1/notifications/ws?token=${token}`;
+    } else {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+      const wsHost = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+      wsUrl = `${wsProtocol}${wsHost}/api/v1/notifications/ws?token=${token}`;
+    }
 
     console.log("[WS] Connecting to:", wsUrl);
     const ws = new WebSocket(wsUrl);

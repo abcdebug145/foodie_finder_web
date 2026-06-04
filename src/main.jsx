@@ -1,3 +1,14 @@
+// Intercept global fetch to prefix relative API paths with VITE_API_URL during deployment
+const originalFetch = window.fetch;
+window.fetch = (input, init) => {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl && typeof input === 'string' && input.startsWith('/api/')) {
+    const cleanApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    input = `${cleanApiUrl}${input}`;
+  }
+  return originalFetch(input, init);
+};
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
