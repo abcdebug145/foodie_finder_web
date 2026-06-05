@@ -10,6 +10,7 @@ import RestaurantDetail from './pages/RestaurantDetail.jsx';
 import Favorites from './pages/Favorites.jsx';
 import Profile from './pages/Profile.jsx';
 import NotFound from './pages/NotFound.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 import AppLoader from './components/AppLoader.jsx';
 import FloatingFood from './components/FloatingFood.jsx';
 import ToastContainer from './components/Toast.jsx';
@@ -74,6 +75,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly={true}>
+                  <AdminDashboard />
                 </ProtectedRoute>
               }
             />

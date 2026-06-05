@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { getSessionId } from '../utils/session.js';
 import { formatCategory } from '../utils/category.js';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -133,7 +134,7 @@ function RecoCard({ restaurant, rank }) {
         </p>
 
         {/* Rating */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--primary)" style={{ width: '11px', height: '11px', flexShrink: 0 }}>
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
@@ -143,6 +144,23 @@ function RecoCard({ restaurant, rank }) {
           {restaurant.category && (
             <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginLeft: '2px' }}>
               · {formatCategory(restaurant.category)}
+            </span>
+          )}
+          {restaurant.is_verified === false && (
+            <span style={{
+              fontSize: '8px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.3px',
+              padding: '1px 4px',
+              background: 'rgba(236,182,95,0.15)',
+              color: 'var(--accent)',
+              border: '1px solid rgba(236,182,95,0.3)',
+              borderRadius: '2px',
+              fontFamily: 'var(--font-mono)',
+              marginLeft: '6px'
+            }}>
+              Chưa duyệt
             </span>
           )}
         </div>
@@ -260,6 +278,7 @@ export default function RecommendationSection({ city }) {
             hours: r.hours,
             district: r.district,
             similarity_score: (r.avg_rating || 0) / 10,
+            is_verified: r.is_verified,
           }));
           setRestaurants(mapped);
         }
@@ -273,15 +292,23 @@ export default function RecommendationSection({ city }) {
 
     // Full recommendation mode
     setIsColdStart(false);
+    const token = localStorage.getItem('ff_token');
+    const sid = getSessionId();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
       const res = await fetch('/api/v1/recommendations/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           search_history,
           viewed_restaurant_ids,
           city: city || null,
           limit: 8,
+          session_id: sid,
         }),
       });
       if (res.ok) {

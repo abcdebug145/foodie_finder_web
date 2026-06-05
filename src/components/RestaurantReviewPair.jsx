@@ -181,7 +181,28 @@ export default function RestaurantReviewPair({ restaurant }) {
         
         <div className="card__body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
           <div className="card__meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="badge">{formatCategory(restaurant.category)}</span>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <span className="badge">{formatCategory(restaurant.category)}</span>
+              {restaurant.is_verified === false && (
+                <span 
+                  style={{
+                    padding: '3px 6px',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '9.5px',
+                    fontWeight: '800',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.4px',
+                    background: 'rgba(236,182,95,0.15)',
+                    color: 'var(--accent)',
+                    border: '1px solid rgba(236,182,95,0.3)',
+                    fontFamily: 'var(--font-mono)'
+                  }}
+                  title="Thông tin chưa được kiểm chứng chính thức"
+                >
+                  Chưa xác minh
+                </span>
+              )}
+            </div>
             <span className="card__rating" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700', color: 'var(--primary-dark)' }}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '13px', height: '13px', marginRight: '2px' }}>
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />

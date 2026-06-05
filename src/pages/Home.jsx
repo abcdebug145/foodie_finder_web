@@ -62,7 +62,8 @@ export default function Home() {
         rating: r.avg_rating || 0.0,
         image: r.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
         tags: r.cuisine_tags ? r.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
-        description: r.menu || 'Chưa có thực đơn chi tiết.'
+        description: r.menu || 'Chưa có thực đơn chi tiết.',
+        is_verified: r.is_verified
       }));
 
       if (append) {
@@ -516,6 +517,24 @@ export default function Home() {
                 </option>
               ))}
             </select>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn--primary"
+              style={{
+                padding: '8px 16px',
+                fontSize: '12px',
+                borderRadius: 'var(--radius-md)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Đề xuất quán
+            </button>
           </div>
         </div>
 
@@ -533,8 +552,15 @@ export default function Home() {
             ))}
           </div>
         ) : restaurants.length === 0 ? (
-          <div className="empty" style={{ padding: '48px' }}>
-            <p style={{ fontSize: '14px' }}>Huhu, không tìm thấy tọa độ hay quán ăn nào khớp hết á bồ tèo ơi. Thử đổi bộ lọc hoặc từ khóa khác xem sao nha!</p>
+          <div className="empty" style={{ padding: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <p style={{ fontSize: '14px', margin: 0 }}>Huhu, không tìm thấy tọa độ hay quán ăn nào khớp hết á bồ tèo ơi. Thử đổi bộ lọc hoặc từ khóa khác xem sao nha!</p>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="btn btn--primary"
+              style={{ borderRadius: '4px' }}
+            >
+              Đề xuất tạo quán mới
+            </button>
           </div>
         ) : (
           <>

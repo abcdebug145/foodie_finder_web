@@ -181,12 +181,33 @@ function RestaurantCard({ restaurant }) {
         padding: '12px 14px 10px',
         borderBottom: '1px solid var(--border)',
       }}>
-        <div style={{
-          fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: '0.5px', color: 'var(--primary)', marginBottom: 4,
-          fontFamily: 'var(--font-mono)',
-        }}>
-          {formatCategory(restaurant.category)}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: 4 }}>
+          <div style={{
+            fontSize: 10,
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            color: 'var(--primary)',
+            fontFamily: 'var(--font-mono)',
+          }}>
+            {formatCategory(restaurant.category)}
+          </div>
+          {restaurant.is_verified === false && (
+            <span style={{
+              fontSize: '8px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.3px',
+              padding: '1px 4px',
+              background: 'rgba(236,182,95,0.15)',
+              color: 'var(--accent)',
+              border: '1px solid rgba(236,182,95,0.3)',
+              borderRadius: '2px',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              Chưa duyệt
+            </span>
+          )}
         </div>
         <div style={{
           fontSize: 13, fontWeight: 800, color: 'var(--text-dark)', lineHeight: 1.3,

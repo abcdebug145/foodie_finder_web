@@ -31,7 +31,8 @@ export function AuthProvider({ children }) {
           name: userData.full_name || userData.email,
           email: userData.email,
           avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
-          bio: userData.bio || 'Thành viên của Foodie Finder.'
+          bio: userData.bio || 'Thành viên của Foodie Finder.',
+          is_admin: userData.is_admin
         };
         setCurrentUser(user);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
@@ -78,7 +79,8 @@ export function AuthProvider({ children }) {
         name: userData.full_name || userData.email,
         email: userData.email,
         avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
-        bio: userData.bio || 'Thành viên của Foodie Finder.'
+        bio: userData.bio || 'Thành viên của Foodie Finder.',
+        is_admin: userData.is_admin
       };
       
       setCurrentUser(user);

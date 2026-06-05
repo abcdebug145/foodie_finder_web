@@ -89,7 +89,7 @@ export default function Navbar() {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: scrolled ? 'var(--text-dark)' : 'rgba(255,255,255,0.9)',
+                  color: scrolled ? 'var(--text-light)' : 'var(--text-dark)',
                   padding: '6px',
                   display: 'flex',
                   alignItems: 'center',
@@ -98,7 +98,7 @@ export default function Navbar() {
                   transition: 'color 0.2s',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
-                onMouseLeave={e => e.currentTarget.style.color = scrolled ? 'var(--text-dark)' : 'rgba(255,255,255,0.9)'}
+                onMouseLeave={e => e.currentTarget.style.color = scrolled ? 'var(--text-light)' : 'var(--text-dark)'}
                 title="Thông báo"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '20px', height: '20px' }}>
@@ -133,17 +133,96 @@ export default function Navbar() {
 
           {currentUser ? (
             <div className="navbar__user">
-              <Link
-                to="/profile"
-                className="navbar__avatar-link"
-                onClick={() => setOpen(false)}
-              >
-                <img src={currentUser.avatar} alt={currentUser.name} />
-                <span>{currentUser.name}</span>
-              </Link>
-              <button className="btn btn--ghost" onClick={handleLogout}>
-                Đăng xuất
-              </button>
+              <div className="navbar__user-menu">
+                <Link
+                  to="/profile"
+                  className="navbar__avatar-link"
+                  onClick={() => setOpen(false)}
+                >
+                  <img src={currentUser.avatar} alt={currentUser.name} />
+                  <span>{currentUser.name}</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="navbar__chevron"
+                    style={{ width: '12px', height: '12px', marginLeft: '6px', opacity: 0.8 }}
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </Link>
+                <div className="navbar__dropdown">
+                  <Link
+                    to="/profile"
+                    className="navbar__dropdown-item"
+                    onClick={() => setOpen(false)}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ width: '16px', height: '16px' }}
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Trang cá nhân
+                  </Link>
+                  {currentUser.is_admin && (
+                    <Link
+                      to="/admin"
+                      className="navbar__dropdown-item"
+                      onClick={() => setOpen(false)}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ width: '16px', height: '16px' }}
+                      >
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="9" y1="3" x2="9" y2="21"></line>
+                        <line x1="15" y1="3" x2="15" y2="21"></line>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                      </svg>
+                      Quản trị viên
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="navbar__dropdown-item logout-btn"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ width: '16px', height: '16px' }}
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                      <polyline points="16 17 21 12 16 7"></polyline>
+                      <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Đăng xuất
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="navbar__auth">

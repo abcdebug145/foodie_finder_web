@@ -6,6 +6,7 @@ import { useReviews } from '../context/ReviewsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from './Toast.jsx';
 import { getSessionId } from '../utils/session.js';
+import ReportModal from './ReportModal.jsx';
 
 // ── Aspect label map ────────────────────────────────────────────────────────
 const ASPECT_LABELS = {
@@ -344,6 +345,7 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showAllAspects, setShowAllAspects] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const heartRef = useRef(null);
   const commentsWrapperRef = useRef(null);
@@ -444,6 +446,16 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   const handleToggleComments = useCallback(() => {
     setShowComments(prev => !prev);
   }, []);
+
+  const handleReportClick = useCallback((e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      toast('Bạn cần đăng nhập để báo cáo vi phạm.', 'error');
+      navigate('/login');
+      return;
+    }
+    setShowReportModal(true);
+  }, [currentUser, navigate]);
 
   useGSAP(() => {
     if (showComments && commentsWrapperRef.current) {
@@ -609,6 +621,33 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
           {commentsCount > 0 && <span>{commentsCount}</span>}
           <span>Bình luận</span>
         </button>
+
+        {/* Nút báo cáo review */}
+        <button
+          onClick={handleReportClick}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: 'var(--text-muted)',
+            fontWeight: '500',
+            fontSize: '13px',
+            padding: '5px 12px',
+            transition: 'color 0.2s',
+            marginLeft: 'auto'
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--danger)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+            <line x1="4" y1="22" x2="4" y2="11"></line>
+          </svg>
+          <span>Báo cáo</span>
+        </button>
       </div>
 
       {/* ── Comments Panel (Collapsible) ── */}
@@ -664,6 +703,14 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
             </div>
           </form>
         </div>
+      )}
+      {showReportModal && (
+        <ReportModal
+          targetType="review"
+          targetId={review.id}
+          restaurantId={review.restaurantId}
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </article>
   );

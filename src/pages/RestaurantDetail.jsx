@@ -25,6 +25,8 @@ import { useReviews } from '../context/ReviewsContext.jsx';
 import StarRating from '../components/StarRating.jsx';
 import ReviewCard from '../components/ReviewCard.jsx';
 import ReviewForm from '../components/ReviewForm.jsx';
+import ReportModal from '../components/ReportModal.jsx';
+import { toast } from '../components/Toast.jsx';
 
 // ── Aspect labels (shared config) ────────────────────────────────────────────
 const ASPECT_KEYS = [
@@ -54,9 +56,33 @@ export default function RestaurantDetail() {
   const [restaurantReviews, setRestaurantReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   
   const containerRef = useRef(null);
   const heroImageRef = useRef(null);
+
+  const handleVerify = async () => {
+    if (verifying || !restaurant) return;
+    setVerifying(true);
+    try {
+      const token = localStorage.getItem('ff_token');
+      const res = await fetch(`/api/v1/restaurants/${restaurant.id}/verify`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast('Đã xác minh nhà hàng thành công!', 'success');
+        setRestaurant(prev => ({ ...prev, is_verified: true }));
+      } else {
+        toast('Xác minh nhà hàng thất bại.', 'error');
+      }
+    } catch (e) {
+      toast('Lỗi kết nối máy chủ.', 'error');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -269,6 +295,15 @@ export default function RestaurantDetail() {
     toggleFavorite(restaurant.id);
   };
 
+  const handleReportClick = () => {
+    if (!currentUser) {
+      toast('Bạn cần đăng nhập để báo cáo vi phạm.', 'error');
+      navigate('/login', { state: { from: `/restaurants/${restaurant.id}` } });
+      return;
+    }
+    setShowReportModal(true);
+  };
+
   return (
     <div className="detail" ref={containerRef}>
       <div className="detail__hero">
@@ -317,10 +352,75 @@ export default function RestaurantDetail() {
               </>
             )}
           </button>
+          
+          <button
+            className="btn btn--ghost"
+            onClick={handleReportClick}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginLeft: '12px',
+              borderColor: 'var(--danger)',
+              color: 'var(--danger)'
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '15px', height: '15px' }}>
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="11"></line>
+            </svg>
+            Báo cáo
+          </button>
         </div>
       </div>
 
       <div className="container detail__body">
+        {restaurant && restaurant.is_verified === false && (
+          <div style={{
+            gridColumn: '1 / -1',
+            padding: '16px 20px',
+            background: 'rgba(236, 182, 95, 0.12)',
+            border: '2px dashed var(--accent)',
+            borderRadius: 'var(--radius-lg)',
+            color: 'var(--text-dark)',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '14.5px',
+            fontWeight: '600',
+            lineHeight: '1.5',
+            flexWrap: 'wrap',
+          }}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px', flexShrink: 0 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <div style={{ flex: 1, minWidth: '240px' }}>
+              <span>Địa điểm này do thành viên cộng đồng đóng góp và chưa được xác minh chính thức. Thông tin hiển thị (địa chỉ, giờ mở cửa...) có thể chưa chính xác 100%.</span>
+            </div>
+            {currentUser && currentUser.is_admin && (
+              <button
+                onClick={handleVerify}
+                disabled={verifying}
+                className="btn btn--primary"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  borderRadius: '4px',
+                  background: 'var(--accent-green)',
+                  borderColor: 'var(--accent-green)',
+                  color: 'white',
+                  flexShrink: 0,
+                }}
+              >
+                {verifying ? 'Đang duyệt...' : 'Xác minh ngay'}
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="detail__main">
           {/* Áp dụng class glass-panel cho giao diện kính mờ sang trọng */}
           <section className="panel glass-panel">
@@ -790,6 +890,13 @@ export default function RestaurantDetail() {
             </div>
           </div>
         </div>
+      )}
+      {showReportModal && (
+        <ReportModal
+          targetType="restaurant"
+          targetId={restaurant.id}
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </div>
   );

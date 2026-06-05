@@ -6,6 +6,7 @@ import { useReviews } from '../context/ReviewsContext.jsx';
 import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from './Toast.jsx';
+import ReportModal from './ReportModal.jsx';
 
 export default function ReviewPostCard({ review }) {
   const { toggleLikeReview, addCommentToReview } = useReviews();
@@ -16,6 +17,7 @@ export default function ReviewPostCard({ review }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [restaurant, setRestaurant] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const heartRef = useRef(null);
   const commentsWrapperRef = useRef(null);
 
@@ -58,6 +60,16 @@ export default function ReviewPostCard({ review }) {
   // Mở/đóng mượt mà khung bình luận
   const handleToggleComments = () => {
     setShowComments((prev) => !prev);
+  };
+
+  const handleReportClick = (e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      toast('Bạn cần đăng nhập để báo cáo vi phạm.', 'error');
+      navigate('/login');
+      return;
+    }
+    setShowReportModal(true);
   };
 
   useGSAP(() => {
@@ -267,6 +279,33 @@ export default function ReviewPostCard({ review }) {
           </span>
           <span>{commentsCount} Bình luận</span>
         </button>
+
+        {/* Nút Báo cáo */}
+        <button
+          onClick={handleReportClick}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: 'var(--text-muted)',
+            fontWeight: '500',
+            fontSize: '14px',
+            padding: '4px 0'
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--danger)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="11"></line>
+            </svg>
+          </span>
+          <span>Báo cáo</span>
+        </button>
       </div>
 
       {/* 5. Khung bình luận (Collapsible Panel) */}
@@ -342,6 +381,14 @@ export default function ReviewPostCard({ review }) {
             </button>
           </form>
         </div>
+      )}
+      {showReportModal && (
+        <ReportModal
+          targetType="review"
+          targetId={review.id}
+          restaurantId={review.restaurantId}
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </div>
   );

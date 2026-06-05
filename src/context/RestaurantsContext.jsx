@@ -36,7 +36,8 @@ export function RestaurantsProvider({ children }) {
           capacity: r.capacity,
           sub_scores: r.sub_scores,
           latitude: r.latitude,
-          longitude: r.longitude
+          longitude: r.longitude,
+          is_verified: r.is_verified
         };
         setRestaurantMap(prev => ({ ...prev, [id]: mapped }));
         return mapped;
@@ -75,7 +76,8 @@ export function RestaurantsProvider({ children }) {
       cuisine_tags,
       menu: data.description?.trim() || 'Chưa có mô tả chi tiết từ cộng đồng.',
       serves_dishes,
-      city: 'ha-noi'
+      city: 'ha-noi',
+      is_verified: false
     };
 
     try {
@@ -110,7 +112,8 @@ export function RestaurantsProvider({ children }) {
           prep_time: newRest.prep_time,
           holiday_closing: newRest.holiday_closing,
           capacity: newRest.capacity,
-          sub_scores: newRest.sub_scores
+          sub_scores: newRest.sub_scores,
+          is_verified: newRest.is_verified
         };
         setRestaurantMap(prev => ({ ...prev, [newRest.id]: mapped }));
         return { ok: true, restaurantId: newRest.id };
