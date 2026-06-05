@@ -3,7 +3,7 @@
   --primary-dark: #d38038;
   --accent: #ECB65F; /* Mustard Amber */
   --accent-green: #A5CF83; /* Sage Green */
-  --cream: #F5E76F; /* Cream Yellow */
+  --cream: #f0e76f; /* Cream Yellow */
   --bg-dark: #2A1D19; /* Coffee Brown */
   --bg-light: #FDFBF7; /* Soft Creamy Off-White */
   --bg-subtle: #FAF6EE;
@@ -1847,5 +1847,85 @@ img {
 /* Hide scrollbar for horizontal recommendation rail */
 .reco-rail::-webkit-scrollbar {
   display: none;
+}
+
+/* ========== Restaurant-Review Pairs Layout ========== */
+.home-layout-pairs {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 16px;
+}
+
+.restaurant-review-pair {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  background: var(--bg-light);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.3s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  min-height: 400px;
+}
+
+.restaurant-review-pair:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+.restaurant-review-pair__left {
+  border-right: 2px solid var(--border);
+  background: var(--bg-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.restaurant-review-pair__right {
+  padding: 0;
+  background: rgba(253, 251, 247, 0.4);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.restaurant-review-pair__header {
+  position: sticky;
+  top: 0;
+  margin: 0;
+  padding: 16px 24px 12px 24px;
+  background: rgba(253, 251, 247, 0.45);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  z-index: 10;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Adjustments for responsive */
+@media (max-width: 992px) {
+  .restaurant-review-pair {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+  .restaurant-review-pair__left {
+    border-right: none;
+    border-bottom: 2px solid var(--border);
+  }
+  .restaurant-review-pair__right {
+    max-height: none;
+  }
 }
 

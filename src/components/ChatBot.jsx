@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { formatCategory } from '../utils/category.js';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
@@ -185,7 +186,7 @@ function RestaurantCard({ restaurant }) {
           letterSpacing: '0.5px', color: 'var(--primary)', marginBottom: 4,
           fontFamily: 'var(--font-mono)',
         }}>
-          {restaurant.category || 'Nhà hàng'}
+          {formatCategory(restaurant.category)}
         </div>
         <div style={{
           fontSize: 13, fontWeight: 800, color: 'var(--text-dark)', lineHeight: 1.3,
@@ -354,15 +355,27 @@ function ChatMessage({ msg }) {
 
       {/* Restaurant suggestion cards */}
       {isBot && msg.restaurants?.length > 0 && (
-        <div style={{
-          display: 'flex',
-          gap: 10,
-          overflowX: 'auto',
-          paddingBottom: 6,
-          width: '100%',
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'var(--primary) transparent',
-        }}>
+        <div 
+          ref={el => {
+            if (el && !el.__hasWheelListener) {
+              el.__hasWheelListener = true;
+              el.addEventListener('wheel', (e) => {
+                if (e.deltaY !== 0) {
+                  e.preventDefault();
+                  el.scrollLeft += e.deltaY * 1.2;
+                }
+              }, { passive: false });
+            }
+          }}
+          style={{
+            display: 'flex',
+            gap: 10,
+            overflowX: 'auto',
+            paddingBottom: 6,
+            width: '100%',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'var(--primary) transparent',
+          }}>
           {msg.restaurants.map(r => (
             <RestaurantCard key={r.id} restaurant={r} />
           ))}
@@ -386,11 +399,25 @@ export default function ChatBot() {
   ]);
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const panelRef   = useRef(null);
   const btnRef     = useRef(null);
   const messagesEl = useRef(null);
   const inputRef   = useRef(null);
+
+  // Show/hide scroll to top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -712,6 +739,46 @@ export default function ChatBot() {
           </div>
         </div>
       )}
+
+      {/* ── Scroll To Top Widget ────────────────────────────────────── */}
+      <button
+        onClick={scrollToTop}
+        title="Cuộn lên đầu trang"
+        style={{
+          position: 'fixed',
+          bottom: open ? 702 : 92,
+          right: 32,
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          background: 'var(--bg-light)',
+          border: '2px solid var(--border)',
+          color: 'var(--primary)',
+          cursor: 'pointer',
+          display: 'grid',
+          placeItems: 'center',
+          boxShadow: 'var(--shadow)',
+          opacity: showScrollTop ? 1 : 0,
+          transform: showScrollTop ? 'scale(1)' : 'scale(0.8)',
+          pointerEvents: showScrollTop ? 'auto' : 'none',
+          zIndex: 9998,
+          transition: 'bottom 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease, transform 0.3s ease, background-color 0.2s, color 0.2s, border-color 0.2s',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'var(--primary)';
+          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.borderColor = 'var(--primary)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'var(--bg-light)';
+          e.currentTarget.style.color = 'var(--primary)';
+          e.currentTarget.style.borderColor = 'var(--border)';
+        }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
 
       {/* ── Floating trigger button wrapper ─────────────────────────── */}
       <div style={{

@@ -1,31 +1,157 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useReviews } from '../context/ReviewsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from './Toast.jsx';
+import { getSessionId } from '../utils/session.js';
 
 // ── Aspect label map ────────────────────────────────────────────────────────
 const ASPECT_LABELS = {
-  aspect_food_quality:             { label: 'Chất lượng món', icon: '🍽️' },
-  aspect_food_prices:              { label: 'Giá món ăn',     icon: '💰' },
-  aspect_food_style_options:       { label: 'Sự đa dạng',    icon: '🌈' },
-  aspect_service_general:          { label: 'Dịch vụ',        icon: '🙋' },
-  aspect_ambience_general:         { label: 'Không gian',     icon: '✨' },
-  aspect_restaurant_general:       { label: 'Quán tổng thể',  icon: '🏠' },
-  aspect_restaurant_prices:        { label: 'Giá quán',       icon: '🏷️' },
-  aspect_restaurant_miscellaneous: { label: 'Tiện ích khác',  icon: '🔧' },
-  aspect_location_general:         { label: 'Vị trí',         icon: '📍' },
-  aspect_drinks_quality:           { label: 'Đồ uống',        icon: '🥤' },
-  aspect_drinks_prices:            { label: 'Giá đồ uống',    icon: '💵' },
-  aspect_drinks_style_options:     { label: 'Menu đồ uống',   icon: '🍹' },
+  aspect_food_quality: {
+    label: 'Chất lượng món',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M18 8V2M22 2v20M12 2v7a3 3 0 0 0 6 0V2" />
+        <path d="M12 9v13" />
+      </svg>
+    )
+  },
+  aspect_food_prices: {
+    label: 'Giá món ăn',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    )
+  },
+  aspect_food_style_options: {
+    label: 'Sự đa dạng',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+        <polyline points="2 17 12 22 22 17" />
+        <polyline points="2 12 12 17 22 12" />
+      </svg>
+    )
+  },
+  aspect_service_general: {
+    label: 'Dịch vụ',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <polyline points="17 11 19 13 23 9" />
+      </svg>
+    )
+  },
+  aspect_ambience_general: {
+    label: 'Không gian',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9 12 2" />
+      </svg>
+    )
+  },
+  aspect_restaurant_general: {
+    label: 'Tổng thể quán',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    )
+  },
+  aspect_restaurant_prices: {
+    label: 'Giá cả',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+        <line x1="7" y1="7" x2="7.01" y2="7" />
+      </svg>
+    )
+  },
+  aspect_restaurant_miscellaneous: {
+    label: 'Tiện ích khác',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+    )
+  },
+  aspect_location_general: {
+    label: 'Vị trí',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    )
+  },
+  aspect_drinks_quality: {
+    label: 'Đồ uống',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+        <line x1="6" y1="1" x2="6" y2="4" />
+        <line x1="10" y1="1" x2="10" y2="4" />
+        <line x1="14" y1="1" x2="14" y2="4" />
+      </svg>
+    )
+  },
+  aspect_drinks_prices: {
+    label: 'Giá đồ uống',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <line x1="12" y1="8" x2="12" y2="16" />
+        <path d="M15 10H10a2 2 0 0 0 0 4h5" />
+      </svg>
+    )
+  },
+  aspect_drinks_style_options: {
+    label: 'Menu đồ uống',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+        <line x1="12" y1="15" x2="12" y2="22" />
+        <line x1="8" y1="22" x2="16" y2="22" />
+        <path d="M12 15l9-9H3l9 9z" />
+      </svg>
+    )
+  },
 };
 
 const SENTIMENT_STYLE = {
   positive: { bg: 'rgba(16,185,129,0.12)', color: '#059669', border: 'rgba(16,185,129,0.3)', dot: '#10b981' },
   negative: { bg: 'rgba(239,68,68,0.10)',  color: '#dc2626', border: 'rgba(239,68,68,0.25)', dot: '#ef4444' },
   neutral:  { bg: 'rgba(107,114,128,0.1)', color: '#6b7280', border: 'rgba(107,114,128,0.2)', dot: '#9ca3af' },
+};
+
+// Helper to format date strings (handles DD/MM/YYYY and ISO formats)
+const formatDate = (dateStr, includeYear = true) => {
+  if (!dateStr) return 'Mới đây';
+  try {
+    let parsed;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      const [d, m, y] = dateStr.split('/');
+      parsed = new Date(`${y}-${m}-${d}`);
+    } else {
+      parsed = new Date(dateStr);
+    }
+    
+    if (isNaN(parsed.getTime())) return dateStr;
+    
+    const options = includeYear 
+      ? { day: 'numeric', month: 'short', year: 'numeric' }
+      : { day: 'numeric', month: 'short' };
+      
+    return parsed.toLocaleDateString('vi-VN', options);
+  } catch {
+    return dateStr;
+  }
 };
 
 // ── Single Comment (supports reply-level display) ───────────────────────────
@@ -105,7 +231,7 @@ function CommentItem({ comment, reviewId, depth = 0 }) {
         {/* Action row */}
         <div style={{ display: 'flex', gap: '12px', marginTop: '5px', paddingLeft: '4px', alignItems: 'center' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString('vi-VN', { day:'numeric', month:'short' }) : ''}
+            {formatDate(comment.createdAt, false)}
           </span>
           {depth === 0 && (
             <button
@@ -190,10 +316,10 @@ function CommentItem({ comment, reviewId, depth = 0 }) {
 
 // ── Aspect Badge ─────────────────────────────────────────────────────────────
 function AspectBadge({ aspectKey, value }) {
-  if (!value) return null;
+  if (!value || typeof value !== 'string' || value.toLowerCase() === 'none') return null;
   const meta = ASPECT_LABELS[aspectKey];
   if (!meta) return null;
-  const style = SENTIMENT_STYLE[value] || SENTIMENT_STYLE.neutral;
+  const style = SENTIMENT_STYLE[value.toLowerCase()] || SENTIMENT_STYLE.neutral;
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -221,6 +347,61 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
 
   const heartRef = useRef(null);
   const commentsWrapperRef = useRef(null);
+  const cardRef = useRef(null);
+
+  // Track continuous visibility of review card for 3 seconds to log it as "viewed"
+  useEffect(() => {
+    if (!review.id) return;
+    
+    let timer = null;
+    let viewedLogged = false;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !viewedLogged) {
+            // Start 3-second continuous visibility timer
+            timer = setTimeout(async () => {
+              viewedLogged = true;
+              const token = localStorage.getItem('ff_token');
+              const sessionId = getSessionId();
+              const headers = { 'Content-Type': 'application/json' };
+              if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+              }
+              try {
+                await fetch(`/api/v1/reviews/${review.id}/view`, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({ duration: 3, session_id: sessionId })
+                });
+              } catch (err) {
+                console.error('Error logging review view:', err);
+              }
+            }, 3000);
+          } else {
+            // Scroll away, clear the timer
+            if (timer) {
+              clearTimeout(timer);
+              timer = null;
+            }
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      observer.disconnect();
+    };
+  }, [review.id]);
 
   const hasLiked = currentUser
     ? (Array.isArray(review.likes) ? review.likes.includes(currentUser.id) : false)
@@ -235,7 +416,11 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   // Collect non-null aspects
   const aspects = Object.keys(ASPECT_LABELS)
     .map(k => ({ key: k, value: review[k] }))
-    .filter(a => a.value && SENTIMENT_STYLE[a.value]);
+    .filter(a => a.value && 
+                 typeof a.value === 'string' && 
+                 a.value.toLowerCase() !== 'none' && 
+                 SENTIMENT_STYLE[a.value.toLowerCase()]
+    );
 
   const visibleAspects = showAllAspects ? aspects : aspects.slice(0, 4);
 
@@ -291,23 +476,13 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
     }
   }, [currentUser, commentText, review.id, addCommentToReview, navigate]);
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Mới đây';
-    try {
-      // Handle dd/MM/yyyy format from CSV
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-        const [d, m, y] = dateStr.split('/');
-        return new Date(`${y}-${m}-${d}`).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric' });
-      }
-      return new Date(dateStr).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch { return dateStr; }
-  };
+
 
   // Level-1 comments (no parent)
   const topComments = (review.comments || []).filter(c => !c.parentId && !c.parent_id);
 
   return (
-    <article style={{ marginBottom: '20px', padding: '22px 24px', background: 'var(--surface, #fff)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+    <article ref={cardRef} style={{ marginBottom: '20px', padding: '22px 24px', background: 'var(--surface, #fff)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>

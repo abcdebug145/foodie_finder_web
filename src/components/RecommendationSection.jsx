@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { formatCategory } from '../utils/category.js';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 
@@ -141,7 +142,7 @@ function RecoCard({ restaurant, rank }) {
           </span>
           {restaurant.category && (
             <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginLeft: '2px' }}>
-              · {restaurant.category}
+              · {formatCategory(restaurant.category)}
             </span>
           )}
         </div>
@@ -301,6 +302,25 @@ export default function RecommendationSection({ city }) {
   useEffect(() => {
     fetchRecommendations();
   }, [fetchRecommendations]);
+
+  // Hỗ trợ cuộn ngang khi hover chuột rồi scroll wheel dọc trên PC
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+
+    const handleWheel = (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY * 1.2;
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, [loading, restaurants]);
+
 
   // Animation khi cards xuất hiện
   useGSAP(
@@ -471,7 +491,6 @@ export default function RecommendationSection({ city }) {
             paddingBottom: '12px',
             paddingLeft: '4px',
             paddingRight: '24px',
-            scrollSnapType: 'x mandatory',
           }}
         >
           {loading
@@ -479,7 +498,6 @@ export default function RecommendationSection({ city }) {
                 <div 
                   key={i} 
                   style={{ 
-                    scrollSnapAlign: 'start',
                     width: 'calc((100% - 64px) / 4.5)',
                     minWidth: '240px',
                     flexShrink: 0,
@@ -493,7 +511,6 @@ export default function RecommendationSection({ city }) {
                 <div 
                   key={r.id} 
                   style={{ 
-                    scrollSnapAlign: 'start',
                     width: 'calc((100% - 64px) / 4.5)',
                     minWidth: '240px',
                     flexShrink: 0,

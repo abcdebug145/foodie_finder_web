@@ -2,9 +2,8 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useReviews } from '../context/ReviewsContext.jsx';
-import RestaurantCard from '../components/RestaurantCard.jsx';
+import RestaurantReviewPair from '../components/RestaurantReviewPair.jsx';
 import RestaurantSkeleton from '../components/RestaurantSkeleton.jsx';
-import ReviewPostCard from '../components/ReviewPostCard.jsx';
 import SuggestRestaurantModal from '../components/SuggestRestaurantModal.jsx';
 import RecommendationSection from '../components/RecommendationSection.jsx';
 import { toast } from '../components/Toast.jsx';
@@ -92,47 +91,28 @@ export default function Home() {
     fetchReviews(searchQuery, city, 0, 10, false);
   }, [city, category, searchQuery, sort, pinnedAddress]);
 
-  // Infinite Scroll for community reviews feed (triggers at 75% scroll depth)
+  // Infinite Scroll for restaurant pairs feed
   useEffect(() => {
     const handleScroll = () => {
-      let scrollTop, scrollHeight, clientHeight;
-      
-      const feedEl = document.querySelector('.feed-column');
-      if (feedEl && window.innerWidth > 992) {
-        scrollTop = feedEl.scrollTop;
-        scrollHeight = feedEl.scrollHeight;
-        clientHeight = feedEl.clientHeight;
-      } else {
-        // Window scroll (mobile fallback)
-        scrollTop = window.scrollY;
-        scrollHeight = document.documentElement.scrollHeight;
-        clientHeight = window.innerHeight;
-      }
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = window.innerHeight;
       
       if (scrollHeight <= clientHeight) return;
       
       const scrolledPercent = (scrollTop / (scrollHeight - clientHeight)) * 100;
       if (scrolledPercent >= 75) {
-        if (hasMoreReviews && !reviewsLoading) {
-          fetchReviews(searchQuery, city, reviews.length, 10, true);
+        if (hasMore && !isLoading) {
+          setSkip((prev) => prev + LIMIT);
         }
       }
     };
     
     window.addEventListener('scroll', handleScroll);
-    
-    const feedEl = document.querySelector('.feed-column');
-    if (feedEl) {
-      feedEl.addEventListener('scroll', handleScroll);
-    }
-    
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      if (feedEl) {
-        feedEl.removeEventListener('scroll', handleScroll);
-      }
     };
-  }, [hasMoreReviews, reviewsLoading, reviews.length, searchQuery, city, fetchReviews]);
+  }, [hasMore, isLoading]);
 
   // Load next pages
   useEffect(() => {
@@ -282,40 +262,20 @@ export default function Home() {
     { scope: containerRef }
   );
 
-  // 2. Animation xuất hiện của danh sách đề xuất
+  // 2. Animation xuất hiện của danh sách cặp đôi đề xuất
   useGSAP(
     () => {
-      const cards = containerRef.current.querySelectorAll('.sidebar-grid > *');
-      if (cards.length > 0) {
+      // Chỉ chạy hiệu ứng khi tải danh sách trang đầu tiên (skip === 0)
+      if (skip > 0) return;
+      const pairs = containerRef.current.querySelectorAll('.restaurant-review-pair');
+      if (pairs.length > 0) {
         gsap.fromTo(
-          cards,
-          { opacity: 0, y: 20, scale: 0.98 },
+          pairs,
+          { opacity: 0, y: 35, scale: 0.98 },
           {
             opacity: 1,
             y: 0,
             scale: 1,
-            duration: 0.4,
-            stagger: 0.05,
-            ease: 'power3.out',
-            overwrite: 'auto',
-          }
-        );
-      }
-    },
-    { dependencies: [isLoading, filteredRestaurants], scope: containerRef }
-  );
-
-  // 3. Animation xuất hiện của Bảng tin Review
-  useGSAP(
-    () => {
-      const posts = containerRef.current.querySelectorAll('.feed-column .review-post');
-      if (posts.length > 0) {
-        gsap.fromTo(
-          posts,
-          { opacity: 0, y: 30 },
-          {
-            opacity: 1,
-            y: 0,
             duration: 0.5,
             stagger: 0.08,
             ease: 'power3.out',
@@ -324,7 +284,7 @@ export default function Home() {
         );
       }
     },
-    { dependencies: [sortedReviews], scope: containerRef }
+    { dependencies: [filteredRestaurants, skip], scope: containerRef }
   );
 
   return (
@@ -381,33 +341,19 @@ export default function Home() {
                     )}
                   </button>
 
-                  {pinnedAddress ? (
-                    <div key="pinned-address" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: '700', color: 'var(--primary)', background: 'var(--bg-dark)', padding: '6px 12px', borderRadius: 'var(--radius-md)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', border: '1px solid rgba(232, 153, 81, 0.2)' }}>
-                      <span title={pinnedAddress}>{pinnedAddress}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPinnedAddress(null);
-                          setSearchQuery(query);
-                          localStorage.removeItem('ff_user_lat');
-                          localStorage.removeItem('ff_user_lon');
-                          localStorage.removeItem('ff_user_address');
-                        }}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '0 2px', fontSize: '10px', fontWeight: 'bold' }}
-                        title="Hủy ghim vị trí, chọn lại thành phố"
-                      >
-                        x
-                      </button>
-                    </div>
-                  ) : (
                     <select
                       key="city-select"
-                      value={city}
+                      value={pinnedAddress ? "pinned" : city}
                       onChange={(e) => {
                         const val = e.target.value;
+                        if (val === "pinned") return;
+                        setPinnedAddress(null);
                         setCity(val);
                         setSearchQuery(query);
                         localStorage.setItem('ff_user_city', val);
+                        localStorage.removeItem('ff_user_lat');
+                        localStorage.removeItem('ff_user_lon');
+                        localStorage.removeItem('ff_user_address');
                       }}
                       className="select"
                       style={{
@@ -419,17 +365,22 @@ export default function Home() {
                         outline: 'none',
                         cursor: 'pointer',
                         color: 'var(--text-dark)',
-                        borderRadius: '0'
+                        borderRadius: '0',
+                        maxWidth: '170px',
                       }}
-                      aria-label="Chọn thành phố"
+                      aria-label="Chọn địa điểm hoặc thành phố"
                     >
+                      {pinnedAddress && (
+                        <option value="pinned">
+                          {pinnedAddress.length > 20 ? pinnedAddress.slice(0, 17) + '...' : pinnedAddress}
+                        </option>
+                      )}
                       <option value="ha-noi">Hà Nội</option>
                       <option value="ho-chi-minh">TP. HCM</option>
                       <option value="da-nang">Đà Nẵng</option>
                       <option value="can-tho">Cần Thơ</option>
                       <option value="hue">Huế</option>
                     </select>
-                  )}
                 </div>
 
                 {/* Category select wrapper with Utensils SVG */}
@@ -527,118 +478,87 @@ export default function Home() {
         {/* Section Gợi ý cho bạn - full width phía trên layout 2 cột */}
         <RecommendationSection city={city} />
 
-        <div className="home-layout">
-          
-          {/* CỘT TRÁI: Bảng tin hoạt động Review mạng xã hội */}
-          <div className="feed-column">
-            <h2 className="section__title" style={{ marginBottom: '20px' }}>
-              Hóng biến ẩm thực từ hội foodie
+        {/* Layout Gợi ý địa điểm đi kèm Đánh giá (Restaurant-Review Pairs) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h2 className="section__title" style={{ margin: 0, fontSize: '24px' }}>
+              Vũ trụ quán ngon & Đánh giá thực tế
             </h2>
-            {sortedReviews.length === 0 ? (
-              <div className="empty">
-                <p>Chưa có chiếc review nào ở đây hết á. Share trải nghiệm đầu tiên đi bồ ơi!</p>
-              </div>
-            ) : (
-              <>
-                {sortedReviews.map((r) => <ReviewPostCard key={r.id} review={r} />)}
-                {reviewsLoading && (
-                  <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-dark)', fontWeight: '800', fontFamily: 'var(--font-mono)' }}>
-                    Đang load thêm review... lướt tiếp đi bồ tèo!
-                  </div>
-                )}
-              </>
-            )}
+            <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: 'var(--text-muted)', fontWeight: '500' }}>
+              Khám phá các địa điểm ăn uống kèm bằng chứng review chi tiết
+            </p>
           </div>
-
-          {/* CỘT PHẢI: Sidebar gợi ý địa điểm & đóng góp quán mới */}
-          <div className="sidebar-column">
-            
-            {/* Banner kêu gọi đóng góp địa điểm */}
-            <div className="suggest-banner">
-              <h3>Chưa thấy quán tủ của bồ?</h3>
-              <p>
-                Bày nhỏ thông tin quán cho cộng đồng biết ngay để cùng săn review xịn nào!
-              </p>
-              <button className="btn btn--primary" onClick={() => setIsModalOpen(true)}>
-                Đóng góp tọa độ
-              </button>
-            </div>
-
-            {/* Gợi ý quán ăn */}
-            <div>
-              <h3 className="section__title" style={{ fontSize: '20px', marginBottom: '8px' }}>
-                Đề xuất quán ngon
-              </h3>
-              <p className="section__subtitle" style={{ margin: '0 0 16px' }}>
-                {filteredRestaurants.length} địa điểm phù hợp
-              </p>
-
-              {/* Bộ lọc nhỏ gọn trong Sidebar */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      className={`chip ${category === opt.id || (opt.id === 'Tất cả' && category === 'Tất cả') ? 'is-active' : ''}`}
-                      onClick={() => handleCategoryChange(opt.id === 'Tất cả' ? 'Tất cả' : opt.id)}
-                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: 'var(--radius-sm)' }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-
-                <select
-                  value={sort}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="select"
-                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', borderRadius: '10px' }}
-                  aria-label="Sắp xếp danh sách"
+          {/* Bộ lọc nhỏ gọn */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {CATEGORY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  className={`chip ${category === opt.id || (opt.id === 'Tất cả' && category === 'Tất cả') ? 'is-active' : ''}`}
+                  onClick={() => handleCategoryChange(opt.id === 'Tất cả' ? 'Tất cả' : opt.id)}
+                  style={{ padding: '8px 16px', fontSize: '12px', borderRadius: 'var(--radius-md)' }}
                 >
-                  {SORT_OPTIONS.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Lưới các thẻ quán đề xuất */}
-              {isLoading && restaurants.length === 0 ? (
-                <div className="sidebar-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <RestaurantSkeleton key={i} />
-                  ))}
-                </div>
-              ) : restaurants.length === 0 ? (
-                <div className="empty" style={{ padding: '20px' }}>
-                  <p style={{ fontSize: '13px' }}>Huhu, không có tọa độ nào khớp hết á bồ.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="sidebar-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {restaurants.map((r) => (
-                      <RestaurantCard key={r.id} restaurant={r} />
-                    ))}
-                  </div>
-                  {hasMore && (
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => setSkip(prev => prev + LIMIT)}
-                      disabled={isLoading}
-                      style={{ width: '100%', marginTop: '16px', padding: '12px', borderRadius: 'var(--radius-md)' }}
-                    >
-                      {isLoading ? "Đang load..." : "Săn thêm quán ngon v"}
-                    </button>
-                  )}
-                </>
-              )}
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
+            <select
+              value={sort}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="select"
+              style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '2px' }}
+              aria-label="Sắp xếp danh sách"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
-
         </div>
+
+        {isLoading && restaurants.length === 0 ? (
+          <div className="home-layout-pairs">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="restaurant-review-pair" style={{ opacity: 0.6 }}>
+                <div className="restaurant-review-pair__left" style={{ height: '320px', background: 'var(--bg-subtle)', position: 'relative', overflow: 'hidden' }}>
+                  <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
+                </div>
+                <div className="restaurant-review-pair__right" style={{ background: 'var(--bg-light)', position: 'relative', overflow: 'hidden' }}>
+                  <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : restaurants.length === 0 ? (
+          <div className="empty" style={{ padding: '48px' }}>
+            <p style={{ fontSize: '14px' }}>Huhu, không tìm thấy tọa độ hay quán ăn nào khớp hết á bồ tèo ơi. Thử đổi bộ lọc hoặc từ khóa khác xem sao nha!</p>
+          </div>
+        ) : (
+          <>
+            <div className="home-layout-pairs">
+              {restaurants.map((r) => (
+                <RestaurantReviewPair key={r.id} restaurant={r} />
+              ))}
+            </div>
+            {isLoading && (
+              <div className="home-layout-pairs" style={{ marginTop: '32px' }}>
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={`skeleton-more-${i}`} className="restaurant-review-pair" style={{ opacity: 0.6 }}>
+                    <div className="restaurant-review-pair__left" style={{ height: '320px', background: 'var(--bg-subtle)', position: 'relative', overflow: 'hidden' }}>
+                      <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
+                    </div>
+                    <div className="restaurant-review-pair__right" style={{ background: 'var(--bg-light)', position: 'relative', overflow: 'hidden' }}>
+                      <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* Modal đề xuất quán ăn mới */}

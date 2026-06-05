@@ -98,18 +98,26 @@ export default function ReviewPostCard({ review }) {
 
   // Định dạng ngày hiển thị dễ thương
   const formatDate = (dateStr) => {
+    if (!dateStr) return 'Mới đây';
     try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric' });
+      let parsed;
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+        const [d, m, y] = dateStr.split('/');
+        parsed = new Date(`${y}-${m}-${d}`);
+      } else {
+        parsed = new Date(dateStr);
+      }
+      if (isNaN(parsed.getTime())) return dateStr;
+      return parsed.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric' });
     } catch {
-      return 'Mới đây';
+      return dateStr;
     }
   };
 
   return (
     <div className="panel glass-panel review-post" style={{ marginBottom: '20px', padding: '24px' }}>
-      {/* 1. Header: Thông tin người viết và ngày tháng */}
-      <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+      {/* 1. Header: Thông tin người viết, số sao (trái) và tên quán ăn (phải) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <img
             src={review.userAvatar || 'https://i.pravatar.cc/150'}
@@ -117,73 +125,75 @@ export default function ReviewPostCard({ review }) {
             style={{ width: '42px', height: '42px', borderRadius: '2px', objectFit: 'cover' }}
           />
           <div>
-            <h4 style={{ margin: '0', fontSize: '15px', fontWeight: '700' }}>{review.userName}</h4>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{formatDate(review.createdAt)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h4 style={{ margin: '0', fontSize: '15px', fontWeight: '700' }}>{review.userName}</h4>
+              
+              {/* Số sao đánh giá nằm ngay cạnh tên người dùng ở bên trái */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <svg
+                    key={idx}
+                    width="13" height="13"
+                    viewBox="0 0 24 24"
+                    fill={idx < starsCount ? "var(--primary)" : "none"}
+                    stroke="var(--primary)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ marginRight: '1px' }}
+                  >
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                ))}
+              </div>
+            </div>
+            <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {formatDate(review.createdAt)}
+            </span>
           </div>
         </div>
         
-        {/* Số sao đánh giá dạng SVG */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <svg
-              key={idx}
-              width="14" height="14"
-              viewBox="0 0 24 24"
-              fill={idx < starsCount ? "var(--primary)" : "none"}
-              stroke="var(--primary)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ marginRight: '2px' }}
+        {/* Tên quán ăn nằm bên phải */}
+        <div>
+          {restaurant ? (
+            <Link
+              to={`/restaurants/${restaurant.id}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '800',
+                fontSize: '12px',
+                color: 'var(--text-dark)',
+                background: 'rgba(232, 153, 81, 0.1)',
+                border: '1px solid rgba(232, 153, 81, 0.3)',
+                padding: '4px 10px',
+                borderRadius: '2px',
+                textDecoration: 'none',
+                maxWidth: '240px', // Dài thêm xíu nữa
+                fontFamily: 'var(--font-mono)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.02em',
+                overflow: 'hidden'
+              }}
+              title={restaurant.name}
             >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          ))}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{restaurant.name}</span>
+            </Link>
+          ) : (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <span>Địa điểm ẩn</span>
+            </span>
+          )}
         </div>
-      </div>
-
-      {/* 2. Đường dẫn neo địa điểm quán ăn */}
-      <div style={{ marginBottom: '12px' }}>
-        {restaurant ? (
-          <Link
-            to={`/restaurants/${restaurant.id}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: '800',
-              fontSize: '12px',
-              color: 'var(--text-dark)',
-              background: 'rgba(232, 153, 81, 0.1)',
-              border: '1px solid rgba(232, 153, 81, 0.3)',
-              padding: '6px 14px',
-              borderRadius: '2px',
-              textDecoration: 'none',
-              maxWidth: '100%',
-              whiteSpace: 'nowrap',
-              fontFamily: 'var(--font-mono)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.02em',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}
-            title={`${restaurant.name} - ${restaurant.address}`}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span>{restaurant.name} • {restaurant.address}</span>
-          </Link>
-        ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            Địa điểm ẩm thực ẩn
-          </span>
-        )}
       </div>
 
       {/* 3. Nội dung bình luận chính */}

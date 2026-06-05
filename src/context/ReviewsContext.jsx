@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { getSessionId } from '../utils/session.js';
 
 const ReviewsContext = createContext(null);
 
@@ -10,9 +11,16 @@ export function ReviewsProvider({ children }) {
   // ── Fetch reviews (with optional search, city, pagination) ──────────────────
   const fetchReviews = useCallback(async (searchQuery = '', city = '', skip = 0, limit = 10, append = false) => {
     setReviewsLoading(true);
+    const sid = getSessionId();
+    const token = localStorage.getItem('ff_token');
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     try {
       const response = await fetch(
-        `/api/v1/reviews/?q=${encodeURIComponent(searchQuery)}&city=${encodeURIComponent(city)}&skip=${skip}&limit=${limit}`
+        `/api/v1/reviews/?q=${encodeURIComponent(searchQuery)}&city=${encodeURIComponent(city)}&skip=${skip}&limit=${limit}&session_id=${sid}`,
+        { headers }
       );
       if (response.ok) {
         const data = await response.json();

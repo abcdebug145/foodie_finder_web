@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { formatCategory } from '../utils/category.js';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -280,7 +281,7 @@ export default function RestaurantDetail() {
             </svg>
             Tất cả nhà hàng
           </Link>
-          <span className="badge">{restaurant.category}</span>
+          <span className="badge">{formatCategory(restaurant.category)}</span>
           <h1>{restaurant.name}</h1>
           <div className="detail__meta">
             <span className="detail__rating">
