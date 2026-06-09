@@ -90,9 +90,7 @@ export function NotificationsProvider({ children }) {
       const wsHost = apiBase.replace(/^https?:\/\//, '');
       wsUrl = `${wsProtocol}${wsHost}/api/v1/notifications/ws?token=${token}`;
     } else {
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-      const wsHost = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-      wsUrl = `${wsProtocol}${wsHost}/api/v1/notifications/ws?token=${token}`;
+      throw new Error('Missing VITE_WS_URL or VITE_API_URL');
     }
 
     console.log("[WS] Connecting to:", wsUrl);
