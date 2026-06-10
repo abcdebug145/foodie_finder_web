@@ -7,6 +7,7 @@ import { useReviews } from '../context/ReviewsContext.jsx';
 import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { Link } from 'react-router-dom';
 import PreferenceSelectorModal from '../components/PreferenceSelectorModal.jsx';
+import { toast } from '../components/Toast.jsx';
 
 function ProfileReviewItem({ review }) {
   const { getRestaurant } = useRestaurants();
@@ -83,6 +84,7 @@ export default function Profile() {
 
   const [editing, setEditing] = useState(false);
   const [openPref, setOpenPref] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     name: currentUser.name,
     bio: currentUser.bio || '',
@@ -90,6 +92,40 @@ export default function Profile() {
   });
 
   const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setForm(f => ({ ...f, avatar: data.url }));
+      toast('Tải ảnh đại diện thành công!', 'success');
+    } catch (err) {
+      console.error(err);
+      toast('Có lỗi xảy ra khi tải ảnh lên.', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Hiệu ứng xuất hiện cho trang cá nhân
   useGSAP(
@@ -110,10 +146,15 @@ export default function Profile() {
     { scope: containerRef }
   );
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    updateProfile(form);
-    setEditing(false);
+    const res = await updateProfile(form);
+    if (res.ok) {
+      toast('Cập nhật hồ sơ thành công!', 'success');
+      setEditing(false);
+    } else {
+      toast(res.error || 'Cập nhật thất bại', 'error');
+    }
   };
 
   return (
@@ -122,7 +163,39 @@ export default function Profile() {
       <div className="profile">
         {/* Áp dụng class glass-panel cho profile card */}
         <div className="profile__card glass-panel">
-          <img src={currentUser.avatar} alt={currentUser.name} className="profile__avatar" />
+          <div 
+            className={`profile__avatar-container ${editing ? 'profile__avatar-container--editing' : ''}`}
+            onClick={editing ? () => fileInputRef.current?.click() : undefined}
+            title={editing ? "Nhấp để tải ảnh đại diện mới" : undefined}
+          >
+            <img 
+              src={editing ? form.avatar : currentUser.avatar} 
+              alt={currentUser.name} 
+              className="profile__avatar" 
+            />
+            {editing && (
+              <div className="profile__avatar-overlay">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                <span>{uploading ? 'Đang tải...' : 'Tải ảnh mới'}</span>
+              </div>
+            )}
+            {editing && uploading && (
+              <div className="profile__avatar-loading">
+                <div className="spinner"></div>
+              </div>
+            )}
+          </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleAvatarChange}
+            disabled={uploading}
+            style={{ display: 'none' }}
+          />
           {!editing ? (
             <>
               <h2>{currentUser.name}</h2>
@@ -188,7 +261,17 @@ export default function Profile() {
                 </button>
               </div>
 
-              <button className="btn btn--ghost" onClick={() => setEditing(true)}>
+              <button 
+                className="btn btn--ghost" 
+                onClick={() => {
+                  setForm({
+                    name: currentUser.name,
+                    bio: currentUser.bio || '',
+                    avatar: currentUser.avatar
+                  });
+                  setEditing(true);
+                }}
+              >
                 Chỉnh sửa hồ sơ
               </button>
             </>
@@ -204,14 +287,6 @@ export default function Profile() {
                 />
               </label>
               <label className="form__field">
-                <span>Ảnh đại diện (URL)</span>
-                <input
-                  type="url"
-                  value={form.avatar}
-                  onChange={(e) => setForm({ ...form, avatar: e.target.value })}
-                />
-              </label>
-              <label className="form__field">
                 <span>Giới thiệu</span>
                 <textarea
                   rows={3}
@@ -220,7 +295,18 @@ export default function Profile() {
                 />
               </label>
               <div className="form__actions">
-                <button type="button" className="btn btn--ghost" onClick={() => setEditing(false)}>
+                <button 
+                  type="button" 
+                  className="btn btn--ghost" 
+                  onClick={() => {
+                    setEditing(false);
+                    setForm({
+                      name: currentUser.name,
+                      bio: currentUser.bio || '',
+                      avatar: currentUser.avatar
+                    });
+                  }}
+                >
                   Hủy
                 </button>
                 <button type="submit" className="btn btn--primary">

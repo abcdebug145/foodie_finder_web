@@ -1,20 +1,202 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { toast } from '../components/Toast.jsx';
 import { formatCategory } from '../utils/category.js';
 
+const CATEGORIES = [
+  { value: 'nha-hang', label: 'Nhà hàng' },
+  { value: 'quan-nhau', label: 'Quán nhậu' },
+  { value: 'quan-an', label: 'Quán ăn' },
+  { value: 'cafe', label: 'Cafe' }
+];
+
 export default function AdminDashboard() {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('reports'); // 'reports' | 'users' | 'restaurants'
+  const { updateRestaurant, deleteRestaurant } = useRestaurants();
+  const [activeTab, setActiveTab] = useState('stats'); // 'stats' | 'reports' | 'users' | 'restaurants' | 'restaurants_all' | 'ai_announcements'
   const [reports, setReports] = useState([]);
   const [users, setUsers] = useState([]);
   const [pendingRestaurants, setPendingRestaurants] = useState([]);
+  const [allRestaurants, setAllRestaurants] = useState([]);
   const [mergeTargets, setMergeTargets] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [restaurantSearchQuery, setRestaurantSearchQuery] = useState('');
   const [reportFilter, setReportFilter] = useState('all'); // 'all' | 'pending' | 'resolved' | 'dismissed'
+  
+  // Stats & RAG states
+  const [stats, setStats] = useState({
+    total_users: 0,
+    total_restaurants: 0,
+    unverified_restaurants: 0,
+    total_reviews: 0,
+    total_reports: 0,
+    pending_reports: 0,
+    category_counts: {},
+    reviews_by_rating: {}
+  });
+  const [ragStatus, setRAGStatus] = useState({
+    total_restaurants: 0,
+    embedded_restaurants: 0,
+    total_reviews: 0,
+    embedded_reviews: 0,
+    is_syncing: false
+  });
+  const [broadcastContent, setBroadcastContent] = useState('');
+  const [broadcasting, setBroadcasting] = useState(false);
+  
+  // Edit Restaurant modal states
+  const [editingRestaurant, setEditingRestaurant] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    category: CATEGORIES[0].value,
+    address: '',
+    phone: '',
+    hours: '',
+    img_url: '',
+    specialties: '',
+    tags: '',
+    menu: '',
+    city: 'ha-noi'
+  });
 
   const token = localStorage.getItem('ff_token');
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('/api/v1/admin/stats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchRAGStatus = async () => {
+    try {
+      const res = await fetch('/api/v1/admin/rag-status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRAGStatus(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRAGRebuild = async () => {
+    try {
+      const res = await fetch('/api/v1/admin/rag-rebuild', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast(data.message, 'success');
+        fetchRAGStatus();
+      } else {
+        toast('Không thể kích hoạt tiến trình đồng bộ RAG.', 'error');
+      }
+    } catch (e) {
+      toast('Lỗi kết nối máy chủ.', 'error');
+    }
+  };
+
+  const handleBroadcastSubmit = async (e) => {
+    e.preventDefault();
+    if (!broadcastContent.trim()) {
+      toast('Vui lòng nhập nội dung thông báo.', 'error');
+      return;
+    }
+    setBroadcasting(true);
+    try {
+      const res = await fetch('/api/v1/admin/broadcast-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: broadcastContent.trim() })
+      });
+      if (res.ok) {
+        toast('Đã gửi thông báo hệ thống đến tất cả người dùng thành công!', 'success');
+        setBroadcastContent('');
+      } else {
+        toast('Gửi thông báo hệ thống thất bại.', 'error');
+      }
+    } catch (e) {
+      toast('Lỗi kết nối máy chủ.', 'error');
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
+  const fetchAllRestaurants = async (q = '') => {
+    try {
+      const url = q ? `/api/v1/restaurants/?q=${encodeURIComponent(q)}&limit=100` : '/api/v1/restaurants/?limit=100';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setAllRestaurants(data);
+      } else {
+        toast('Không thể tải danh sách nhà hàng.', 'error');
+      }
+    } catch (e) {
+      toast('Lỗi kết nối máy chủ.', 'error');
+    }
+  };
+
+  const handleRestaurantSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchAllRestaurants(restaurantSearchQuery);
+  };
+
+  const openEditModal = (rest) => {
+    setEditingRestaurant(rest);
+    setEditForm({
+      name: rest.name || '',
+      category: rest.category || CATEGORIES[0].value,
+      address: rest.address || '',
+      phone: rest.phone || '',
+      hours: rest.hours || '08:00 - 22:00',
+      img_url: rest.img_url || '',
+      specialties: rest.serves_dishes ? rest.serves_dishes.replace(/;/g, ', ') : '',
+      tags: rest.cuisine_tags ? rest.cuisine_tags.replace(/;/g, ', ') : '',
+      menu: rest.menu || '',
+      city: rest.city || 'ha-noi'
+    });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    const res = await updateRestaurant(editingRestaurant.id, editForm);
+    if (res.ok) {
+      toast('Đã cập nhật thông tin nhà hàng thành công!', 'success');
+      setEditingRestaurant(null);
+      fetchAllRestaurants(restaurantSearchQuery);
+    } else {
+      toast(res.error || 'Cập nhật thất bại.', 'error');
+    }
+  };
+
+  const handleDeleteRestaurant = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa nhà hàng này khỏi hệ thống? Toàn bộ review đi kèm cũng sẽ bị xóa.')) {
+      const res = await deleteRestaurant(id);
+      if (res.ok) {
+        toast('Đã xóa nhà hàng thành công!', 'success');
+        fetchAllRestaurants(restaurantSearchQuery);
+      } else {
+        toast(res.error || 'Xóa thất bại.', 'error');
+      }
+    }
+  };
 
   const fetchReports = async () => {
     try {
@@ -121,17 +303,36 @@ export default function AdminDashboard() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      if (activeTab === 'reports') {
+      if (activeTab === 'stats') {
+        await fetchStats();
+      } else if (activeTab === 'reports') {
         await fetchReports();
       } else if (activeTab === 'users') {
         await fetchUsers(searchQuery);
-      } else {
+      } else if (activeTab === 'restaurants') {
         await fetchPendingRestaurants();
+      } else if (activeTab === 'restaurants_all') {
+        await fetchAllRestaurants(restaurantSearchQuery);
+      } else if (activeTab === 'ai_announcements') {
+        await fetchRAGStatus();
       }
       setLoading(false);
     };
     loadData();
   }, [activeTab]);
+
+  // Poll RAG sync status if syncing is active
+  useEffect(() => {
+    let interval = null;
+    if (activeTab === 'ai_announcements' && ragStatus.is_syncing) {
+      interval = setInterval(() => {
+        fetchRAGStatus();
+      }, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeTab, ragStatus.is_syncing]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -224,20 +425,25 @@ export default function AdminDashboard() {
             </svg>
             Hệ thống quản trị
           </h1>
-          <p className="section__subtitle">Điều hành nội dung báo cáo vi phạm và quản lý người dùng hệ thống.</p>
+          <p className="section__subtitle">Điều hành dữ liệu ẩm thực, kiểm duyệt nội dung và tối ưu hóa hệ thống AI.</p>
         </div>
 
         {/* Tab Controls */}
-        <div className="chips">
+        <div className="chips" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <button 
+            className={`chip ${activeTab === 'stats' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('stats')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Thống kê
+          </button>
           <button 
             className={`chip ${activeTab === 'reports' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('reports')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Báo cáo ({reports.filter(r => r.status === 'pending').length} chờ)
           </button>
           <button 
@@ -245,27 +451,32 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('users')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            Tài khoản
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Người dùng
           </button>
           <button 
             className={`chip ${activeTab === 'restaurants' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('restaurants')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <line x1="9" y1="3" x2="9" y2="21"/>
-              <line x1="15" y1="3" x2="15" y2="21"/>
-              <line x1="3" y1="9" x2="21" y2="9"/>
-              <line x1="3" y1="15" x2="21" y2="15"/>
-            </svg>
-            Nhà hàng chờ duyệt ({pendingRestaurants.length} chờ)
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Chờ duyệt ({pendingRestaurants.length} quán)
+          </button>
+          <button 
+            className={`chip ${activeTab === 'restaurants_all' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('restaurants_all')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3ZM21 15v7"/></svg>
+            Quán ăn (CRUD)
+          </button>
+          <button 
+            className={`chip ${activeTab === 'ai_announcements' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('ai_announcements')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+            AI & Thông báo
           </button>
         </div>
       </div>
@@ -280,10 +491,95 @@ export default function AdminDashboard() {
       ) : (
         <div className="panel glass-panel" style={{ padding: '24px', borderRadius: '12px' }}>
           
+          {/* ================= STATS TAB ================= */}
+          {activeTab === 'stats' && (
+            <div>
+              <h3 className="panel__title" style={{ marginBottom: '24px', fontSize: '18px' }}>Tổng quan hệ thống</h3>
+              
+              {/* KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Thành viên</span>
+                  <span style={{ fontSize: '36px', fontWeight: '900', color: 'var(--text-dark)' }}>{stats.total_users}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tài khoản đã đăng ký</span>
+                </div>
+
+                <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Tổng quán ăn</span>
+                  <span style={{ fontSize: '36px', fontWeight: '900', color: 'var(--primary-dark)' }}>{stats.total_restaurants}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Trong đó có <strong style={{ color: 'var(--danger)' }}>{stats.unverified_restaurants}</strong> quán chờ duyệt
+                  </span>
+                </div>
+
+                <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Lượt đánh giá</span>
+                  <span style={{ fontSize: '36px', fontWeight: '900', color: '#3e6d23' }}>{stats.total_reviews}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Số review từ cộng đồng</span>
+                </div>
+
+                <div style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Báo cáo nội dung</span>
+                  <span style={{ fontSize: '36px', fontWeight: '900', color: 'var(--danger)' }}>{stats.total_reports}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Có <strong style={{ color: 'var(--danger)' }}>{stats.pending_reports}</strong> báo cáo chờ xử lý
+                  </span>
+                </div>
+              </div>
+
+              {/* Data Distributions */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                {/* Category counts */}
+                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '20px', background: 'var(--bg-light)' }}>
+                  <h4 style={{ margin: '0 0 16px', fontWeight: '900', textTransform: 'uppercase', fontSize: '14px' }}>Cơ cấu ẩm thực</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {Object.entries(stats.category_counts).map(([cat, count]) => {
+                      const percent = Math.round((count / (stats.total_restaurants || 1)) * 100);
+                      return (
+                        <div key={cat}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>
+                            <span>{formatCategory(cat)}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>{count} quán ({percent}%)</span>
+                          </div>
+                          <div style={{ height: '8px', background: 'rgba(42,29,25,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${percent}%`, background: 'var(--primary)', borderRadius: '4px' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Rating counts */}
+                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '20px', background: 'var(--bg-light)' }}>
+                  <h4 style={{ margin: '0 0 16px', fontWeight: '900', textTransform: 'uppercase', fontSize: '14px' }}>Phân bố sao đánh giá</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[5, 4, 3, 2, 1].map((stars) => {
+                      const count = stats.reviews_by_rating[String(stars)] || 0;
+                      const percent = Math.round((count / (stats.total_reviews || 1)) * 100);
+                      return (
+                        <div key={stars} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '700', width: '30px', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            {stars}★
+                          </span>
+                          <div style={{ flex: 1, height: '8px', background: 'rgba(42,29,25,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${percent}%`, background: '#eab308', borderRadius: '4px' }} />
+                          </div>
+                          <span style={{ fontSize: '12px', width: '90px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: '600' }}>
+                            {count} ({percent}%)
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ================= REPORTS TAB ================= */}
           {activeTab === 'reports' && (
             <div>
-              {/* Reports Filter Options */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <h3 className="panel__title" style={{ margin: 0, fontSize: '18px' }}>Moderation Logs</h3>
                 <div className="filters" style={{ margin: 0 }}>
@@ -378,7 +674,8 @@ export default function AdminDashboard() {
                               fontSize: '11px', fontWeight: '800', textTransform: 'uppercase',
                               color: r.status === 'pending' ? 'var(--primary)' : r.status === 'resolved' ? '#059669' : '#6b7280'
                             }}>
-                              ● {r.status}
+                              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: r.status === 'pending' ? 'var(--primary)' : r.status === 'resolved' ? '#059669' : '#6b7280', marginRight: '6px', verticalAlign: 'middle' }} />
+                              {r.status}
                             </span>
                           </td>
                           <td style={{ padding: '16px 8px', verticalAlign: 'top', textAlign: 'right' }}>
@@ -488,9 +785,12 @@ export default function AdminDashboard() {
                           <td style={{ padding: '16px 8px', verticalAlign: 'middle' }}>
                             <span style={{
                               fontWeight: '700',
-                              color: u.is_active ? '#059669' : 'var(--danger)'
+                              color: u.is_active ? '#059669' : 'var(--danger)',
+                              display: 'inline-flex',
+                              alignItems: 'center'
                             }}>
-                              ● {u.is_active ? 'Đang hoạt động' : 'Đã khóa'}
+                              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: u.is_active ? '#059669' : 'var(--danger)', marginRight: '6px' }} />
+                              {u.is_active ? 'Đang hoạt động' : 'Đã khóa'}
                             </span>
                           </td>
                           <td style={{ padding: '16px 8px', verticalAlign: 'middle', fontSize: '13px', color: 'var(--text-muted)' }}>
@@ -503,7 +803,6 @@ export default function AdminDashboard() {
                               </span>
                             ) : (
                               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                {/* Admin toggle */}
                                 <button
                                   onClick={() => handleUserAdminToggle(u.id, u.is_admin)}
                                   className="btn btn--ghost"
@@ -511,7 +810,6 @@ export default function AdminDashboard() {
                                 >
                                   {u.is_admin ? 'Hủy Admin' : 'Cấp Admin'}
                                 </button>
-                                {/* Block toggle */}
                                 <button
                                   onClick={() => handleUserStatusToggle(u.id, u.is_active)}
                                   className={`btn ${u.is_active ? 'btn--ghost' : 'btn--primary'}`}
@@ -630,6 +928,425 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+
+          {/* ================= ALL RESTAURANTS CRUD TAB ================= */}
+          {activeTab === 'restaurants_all' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 className="panel__title" style={{ margin: 0, fontSize: '18px' }}>Danh sách toàn bộ Quán ăn</h3>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Hiển thị tối đa 100 quán ăn gần đây</span>
+              </div>
+
+              {/* Restaurant Search Bar */}
+              <form onSubmit={handleRestaurantSearchSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm quán ăn theo tên hoặc địa chỉ..."
+                  value={restaurantSearchQuery}
+                  onChange={e => setRestaurantSearchQuery(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 18px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '2px solid var(--border)',
+                    outline: 'none',
+                    fontSize: '14.5px'
+                  }}
+                />
+                <button type="submit" className="btn btn--primary" style={{ padding: '10px 24px', borderRadius: 'var(--radius-md)' }}>
+                  Tìm kiếm
+                </button>
+              </form>
+
+              {allRestaurants.length === 0 ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <strong>Không tìm thấy quán ăn nào.</strong>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14.5px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-dark)' }}>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Tên quán & ID</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Địa chỉ</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Chuyên mục / Điểm số</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Xác minh</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800', textAlign: 'right' }}>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allRestaurants.map(r => (
+                        <tr key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                            <strong style={{ color: 'var(--text-dark)', display: 'block' }}>{r.name}</strong>
+                            <code style={{ fontSize: '11px', color: 'var(--text-muted)' }}>ID: {r.id}</code>
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top', fontSize: '13.5px', maxWidth: '280px' }}>
+                            {r.address}
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top', fontSize: '13.5px' }}>
+                            <strong style={{ display: 'block' }}>{formatCategory(r.category)}</strong>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#eab308', fontWeight: '700' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                              {r.avg_rating || 'Chưa đánh giá'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                            {r.is_verified ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '800', fontSize: '12px', color: 'var(--accent-green)' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                Đã xác minh
+                              </span>
+                            ) : (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '800', fontSize: '12px', color: 'var(--danger)' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Chưa xác minh
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'middle', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => openEditModal(r)}
+                                className="btn btn--ghost"
+                                style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRestaurant(r.id)}
+                                className="btn btn--primary"
+                                style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '4px', background: 'var(--danger)', borderColor: 'var(--danger)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= AI & ANNOUNCEMENTS TAB ================= */}
+          {activeTab === 'ai_announcements' && (
+            <div>
+              {/* RAG Vector Embedding Sync */}
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '32px', marginBottom: '32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary)' }}><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+                  <h3 className="panel__title" style={{ fontSize: '18px', margin: 0 }}>
+                    Trợ lý AI & Vector Database (RAG)
+                  </h3>
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '0 0 24px' }}>
+                  Đồng bộ hóa dữ liệu văn bản từ nhà hàng và đánh giá của người dùng thành các vector nhúng (embeddings) để Chatbot thông minh RAG hoạt động chính xác.
+                </p>
+
+                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                  {/* Progress Restaurant Vector */}
+                  <div style={{ flex: 1, minWidth: '260px', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '13px', marginBottom: '8px' }}>
+                      <span>Dữ liệu Nhà hàng</span>
+                      <span>{ragStatus.embedded_restaurants} / {ragStatus.total_restaurants} vector</span>
+                    </div>
+                    <div style={{ height: '10px', background: 'rgba(42,29,25,0.06)', borderRadius: '5px', overflow: 'hidden', marginBottom: '8px' }}>
+                      <div 
+                        style={{ 
+                          height: '100%', 
+                          width: `${Math.round((ragStatus.embedded_restaurants / (ragStatus.total_restaurants || 1)) * 100)}%`, 
+                          background: 'var(--primary)', 
+                          borderRadius: '5px',
+                          transition: 'width 0.5s ease' 
+                        }} 
+                      />
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                      Độ phủ: {Math.round((ragStatus.embedded_restaurants / (ragStatus.total_restaurants || 1)) * 100)}%
+                    </span>
+                  </div>
+
+                  {/* Progress Review Vector */}
+                  <div style={{ flex: 1, minWidth: '260px', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '13px', marginBottom: '8px' }}>
+                      <span>Dữ liệu Đánh giá (Review)</span>
+                      <span>{ragStatus.embedded_reviews} / {ragStatus.total_reviews} vector</span>
+                    </div>
+                    <div style={{ height: '10px', background: 'rgba(42,29,25,0.06)', borderRadius: '5px', overflow: 'hidden', marginBottom: '8px' }}>
+                      <div 
+                        style={{ 
+                          height: '100%', 
+                          width: `${Math.round((ragStatus.embedded_reviews / (ragStatus.total_reviews || 1)) * 100)}%`, 
+                          background: '#3e6d23', 
+                          borderRadius: '5px',
+                          transition: 'width 0.5s ease' 
+                        }} 
+                      />
+                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                      Độ phủ: {Math.round((ragStatus.embedded_reviews / (ragStatus.total_reviews || 1)) * 100)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <button
+                    onClick={handleRAGRebuild}
+                    disabled={ragStatus.is_syncing}
+                    className="btn btn--primary"
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {ragStatus.is_syncing ? (
+                      <>
+                        <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <circle cx="12" cy="12" r="10" stroke="rgba(255, 255, 255, 0.3)" strokeDasharray="32" strokeDashoffset="8" />
+                        </svg>
+                        Đang đồng bộ vector nền...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Đồng bộ hóa Vector RAG
+                      </>
+                    )}
+                  </button>
+                  {ragStatus.is_syncing && (
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary)' }}>
+                      Vui lòng đợi vài phút để hệ thống HuggingFace API tạo vector nhúng. Trang sẽ tự động làm mới tiến độ.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Broadcast announcement */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary)' }}><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                  <h3 className="panel__title" style={{ fontSize: '18px', margin: 0 }}>
+                    Phát sóng Thông báo Hệ thống (Broadcast)
+                  </h3>
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '0 0 20px' }}>
+                  Gửi thông điệp hệ thống đến toàn bộ thành viên đang hoạt động trên FoodieHomie. Thông báo sẽ xuất hiện trực tiếp tại chuông thông báo Navbar và đẩy tin thời gian thực qua kênh WebSockets.
+                </p>
+
+                <form onSubmit={handleBroadcastSubmit} className="form" style={{ maxWidth: '640px' }}>
+                  <label className="form__field">
+                    <span>Nội dung thông báo (Message Content) *</span>
+                    <textarea
+                      placeholder="Ví dụ: FoodieHomie cập nhật thuật toán RAG mới gợi ý quán ăn chuẩn chỉnh hơn, trải nghiệm ngay cả nhà ơi!..."
+                      value={broadcastContent}
+                      onChange={e => setBroadcastContent(e.target.value)}
+                      rows={4}
+                      style={{ borderRadius: 'var(--radius-md)', padding: '14px', resize: 'vertical' }}
+                      required
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={broadcasting}
+                    className="btn btn--primary"
+                    style={{
+                      marginTop: '12px',
+                      padding: '12px 28px',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    {broadcasting ? 'Đang phát sóng...' : 'Phát thông báo hệ thống'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ================= EDIT RESTAURANT MODAL ================= */}
+      {editingRestaurant && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          {/* Decoupled blurred backdrop for premium performance */}
+          <div 
+            style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(42, 29, 25, 0.45)', backdropFilter: 'blur(4px)' }} 
+            onClick={() => setEditingRestaurant(null)} 
+          />
+          
+          <div 
+            className="panel glass-panel" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '580px', 
+              maxHeight: '85vh', 
+              overflowY: 'auto', 
+              padding: '30px', 
+              position: 'relative', 
+              borderRadius: '4px', 
+              boxShadow: '0 12px 32px rgba(42, 29, 25, 0.18)' 
+            }}
+          >
+            <button
+              onClick={() => setEditingRestaurant(null)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                border: 'none',
+                background: 'rgba(42, 29, 25, 0.05)',
+                width: '32px',
+                height: '32px',
+                borderRadius: '2px',
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--text-muted)'
+              }}
+              aria-label="Đóng"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '22px', margin: '0 0 20px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
+              Cập nhật thông tin quán ăn
+            </h3>
+
+            <form onSubmit={handleEditSubmit} className="form">
+              <label className="form__field">
+                <span>Tên quán ăn *</span>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <label className="form__field">
+                  <span>Danh mục *</span>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    className="select"
+                    style={{ width: '100%', borderRadius: '2px', border: '2px solid var(--border)', padding: '12px 16px', background: 'var(--bg-light)', color: 'var(--text-dark)' }}
+                    required
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="form__field">
+                  <span>Thành phố *</span>
+                  <select
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    className="select"
+                    style={{ width: '100%', borderRadius: '2px', border: '2px solid var(--border)', padding: '12px 16px', background: 'var(--bg-light)', color: 'var(--text-dark)' }}
+                    required
+                  >
+                    <option value="ha-noi">Hà Nội</option>
+                    <option value="ho-chi-minh">TP. HCM</option>
+                    <option value="da-nang">Đà Nẵng</option>
+                    <option value="can-tho">Cần Thơ</option>
+                    <option value="hue">Huế</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="form__field">
+                <span>Địa chỉ *</span>
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  required
+                />
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <label className="form__field">
+                  <span>Giờ hoạt động</span>
+                  <input
+                    type="text"
+                    value={editForm.hours}
+                    onChange={(e) => setEditForm({ ...editForm, hours: e.target.value })}
+                  />
+                </label>
+
+                <label className="form__field">
+                  <span>Số điện thoại</span>
+                  <input
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  />
+                </label>
+              </div>
+
+              <label className="form__field">
+                <span>Món đặc trưng (phân cách bằng dấu phẩy)</span>
+                <input
+                  type="text"
+                  value={editForm.specialties}
+                  onChange={(e) => setEditForm({ ...editForm, specialties: e.target.value })}
+                />
+              </label>
+
+              <label className="form__field">
+                <span>Hashtag bổ sung (phân cách bằng dấu phẩy)</span>
+                <input
+                  type="text"
+                  value={editForm.tags}
+                  onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                />
+              </label>
+
+              <label className="form__field">
+                <span>Ảnh bìa quán (URL hình ảnh)</span>
+                <input
+                  type="url"
+                  value={editForm.img_url}
+                  onChange={(e) => setEditForm({ ...editForm, img_url: e.target.value })}
+                />
+              </label>
+
+              <label className="form__field">
+                <span>Giới thiệu chi tiết (Thực đơn / Mô tả)</span>
+                <textarea
+                  value={editForm.menu}
+                  onChange={(e) => setEditForm({ ...editForm, menu: e.target.value })}
+                  rows={3}
+                />
+              </label>
+
+              <div className="form__actions" style={{ marginTop: '20px' }}>
+                <button type="button" className="btn btn--ghost" onClick={() => setEditingRestaurant(null)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn--primary">
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

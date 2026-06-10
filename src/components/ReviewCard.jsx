@@ -542,6 +542,17 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
         {review.text || review.content}
       </p>
 
+      {/* ── Review Image (Cloudinary) ── */}
+      {review.image_urls && (
+        <div style={{ marginBottom: '14px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)', maxWidth: '100%', display: 'inline-block' }}>
+          <img 
+            src={review.image_urls} 
+            alt="Review attachment" 
+            style={{ maxHeight: '300px', width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }} 
+          />
+        </div>
+      )}
+
       {/* ── Aspect Badges ── */}
       {aspects.length > 0 && (
         <div style={{ marginBottom: '14px' }}>

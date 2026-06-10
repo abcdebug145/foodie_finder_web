@@ -127,13 +127,114 @@ export function RestaurantsProvider({ children }) {
     }
   }, []);
 
+  const updateRestaurant = useCallback(async (id, data) => {
+    const token = localStorage.getItem('ff_token');
+    if (!token) return { ok: false, error: 'Bạn cần đăng nhập bằng tài khoản Admin để chỉnh sửa.' };
+    
+    const cuisine_tags = data.tags
+      ? (Array.isArray(data.tags) ? data.tags.join(';') : data.tags.split(',').map((t) => t.trim()).filter(Boolean).join(';'))
+      : data.cuisine_tags;
+
+    const serves_dishes = data.specialties
+      ? (Array.isArray(data.specialties) ? data.specialties.join(';') : data.specialties.split(',').map((s) => s.trim()).filter(Boolean).join(';'))
+      : data.serves_dishes;
+
+    const payload = {
+      name: data.name?.trim(),
+      category: data.category,
+      address: data.address?.trim(),
+      phone: data.phone?.trim(),
+      hours: data.hours?.trim(),
+      img_url: data.img_url || data.image,
+      cuisine_tags,
+      menu: data.menu || data.description,
+      serves_dishes,
+      city: data.city || 'ha-noi'
+    };
+
+    try {
+      const response = await fetch(`/api/v1/restaurants/${id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        const updatedRest = await response.json();
+        const mapped = {
+          id: updatedRest.id,
+          name: updatedRest.name,
+          category: updatedRest.category || 'Khác',
+          priceRange: updatedRest.capacity || '$$',
+          address: updatedRest.address || 'Chưa cập nhật',
+          phone: updatedRest.phone || 'Chưa cập nhật',
+          hours: updatedRest.hours || '08:00 - 22:00',
+          rating: updatedRest.avg_rating || 0.0,
+          image: updatedRest.img_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+          tags: updatedRest.cuisine_tags ? updatedRest.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
+          description: updatedRest.menu || 'Chưa có thực đơn chi tiết.',
+          specialties: updatedRest.serves_dishes ? updatedRest.serves_dishes.split(';').map(s => s.trim()).filter(Boolean) : ['Món ăn gia đình'],
+          gallery: [],
+          menu: updatedRest.menu,
+          serves_dishes: updatedRest.serves_dishes,
+          cuisine_style: updatedRest.cuisine_style,
+          suitable_for: updatedRest.suitable_for,
+          sub_scores: updatedRest.sub_scores,
+          is_verified: updatedRest.is_verified
+        };
+        setRestaurantMap(prev => ({ ...prev, [id]: mapped }));
+        return { ok: true };
+      } else {
+        const errorData = await response.json();
+        return { ok: false, error: errorData.detail || 'Không thể cập nhật quán ăn.' };
+      }
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: 'Đã xảy ra lỗi kết nối với máy chủ.' };
+    }
+  }, []);
+
+  const deleteRestaurant = useCallback(async (id) => {
+    const token = localStorage.getItem('ff_token');
+    if (!token) return { ok: false, error: 'Bạn cần đăng nhập bằng tài khoản Admin để xóa.' };
+
+    try {
+      const response = await fetch(`/api/v1/restaurants/${id}`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setRestaurantMap(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        return { ok: true };
+      } else {
+        const errorData = await response.json();
+        return { ok: false, error: errorData.detail || 'Không thể xóa quán ăn.' };
+      }
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: 'Đã xảy ra lỗi kết nối với máy chủ.' };
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       restaurants: Object.values(restaurantMap),
       getRestaurant,
-      addRestaurant
+      addRestaurant,
+      updateRestaurant,
+      deleteRestaurant
     }),
-    [restaurantMap, getRestaurant, addRestaurant]
+    [restaurantMap, getRestaurant, addRestaurant, updateRestaurant, deleteRestaurant]
   );
 
   return (

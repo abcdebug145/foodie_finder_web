@@ -39,7 +39,7 @@ export function ReviewsProvider({ children }) {
   }, []);
 
   // ── Add new review ──────────────────────────────────────────────────────────
-  const addReview = useCallback(async ({ restaurantId, user, rating, content }) => {
+  const addReview = useCallback(async ({ restaurantId, user, rating, content, imageUrls }) => {
     if (!user) return { ok: false, error: 'Bạn cần đăng nhập để viết đánh giá.' };
     if (!content?.trim()) return { ok: false, error: 'Vui lòng nhập nội dung đánh giá.' };
     if (!rating || rating < 1) return { ok: false, error: 'Vui lòng chọn số sao.' };
@@ -49,7 +49,12 @@ export function ReviewsProvider({ children }) {
       const response = await fetch('/api/v1/reviews/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ restaurantId, rating, content: content.trim() })
+        body: JSON.stringify({
+          restaurantId,
+          rating,
+          content: content.trim(),
+          image_urls: imageUrls || null
+        })
       });
       if (!response.ok) {
         const errorData = await response.json();

@@ -143,10 +143,44 @@ export function AuthProvider({ children }) {
   };
 
   const updateProfile = async (updates) => {
-    if (!currentUser) return;
-    const nextUser = { ...currentUser, ...updates };
-    setCurrentUser(nextUser);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
+    if (!currentUser) return { ok: false, error: 'Chưa đăng nhập' };
+    const token = localStorage.getItem('ff_token');
+    if (!token) return { ok: false, error: 'Chưa đăng nhập' };
+
+    try {
+      const response = await fetch('/api/v1/users/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: updates.name,
+          bio: updates.bio,
+          avatar: updates.avatar
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        return { ok: false, error: err.detail || 'Cập nhật hồ sơ thất bại' };
+      }
+
+      const userData = await response.json();
+      const updatedUser = {
+        ...currentUser,
+        name: userData.full_name || userData.email,
+        bio: userData.bio || 'Thành viên của Foodie Finder.',
+        avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`
+      };
+
+      setCurrentUser(updatedUser);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+      return { ok: true };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: 'Lỗi kết nối máy chủ' };
+    }
   };
 
   const value = useMemo(

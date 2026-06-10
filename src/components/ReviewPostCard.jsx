@@ -213,6 +213,17 @@ export default function ReviewPostCard({ review }) {
         {review.content}
       </p>
 
+      {/* ── Review Image (Cloudinary) ── */}
+      {review.image_urls && (
+        <div style={{ marginBottom: '16px', borderRadius: '2px', overflow: 'hidden', border: '1px solid var(--border)', maxWidth: '100%', display: 'inline-block' }}>
+          <img 
+            src={review.image_urls} 
+            alt="Review attachment" 
+            style={{ maxHeight: '300px', width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }} 
+          />
+        </div>
+      )}
+
       {/* 4. Footer: Nút tương tác */}
       <div
         style={{

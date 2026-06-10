@@ -11,6 +11,41 @@ export default function ReviewForm({ restaurantId }) {
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [reviewImage, setReviewImage] = useState('');
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    setError('');
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setReviewImage(data.url);
+    } catch (err) {
+      console.error(err);
+      setError('Lỗi khi tải hình ảnh lên.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!currentUser) {
     return (
@@ -26,13 +61,20 @@ export default function ReviewForm({ restaurantId }) {
     e.preventDefault();
     setError('');
     setSuccess('');
-    const res = await addReview({ restaurantId, user: currentUser, rating, content });
+    const res = await addReview({ 
+      restaurantId, 
+      user: currentUser, 
+      rating, 
+      content,
+      imageUrls: reviewImage || null
+    });
     if (!res.ok) {
       setError(res.error);
       return;
     }
     setRating(0);
     setContent('');
+    setReviewImage('');
     setSuccess('Cảm ơn bạn đã chia sẻ đánh giá!');
     setTimeout(() => setSuccess(''), 2500);
   };
@@ -53,6 +95,36 @@ export default function ReviewForm({ restaurantId }) {
         onChange={(e) => setContent(e.target.value)}
         rows={4}
       />
+      
+      {/* Đính kèm hình ảnh món ăn */}
+      <div style={{ margin: '14px 0', fontSize: '13px' }}>
+        <label style={{ display: 'block', fontWeight: '700', marginBottom: '6px', color: 'var(--text-dark)' }}>
+          Đính kèm hình ảnh món ăn
+        </label>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {reviewImage && (
+            <div style={{ position: 'relative', width: '60px', height: '60px', border: '1px solid var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+              <img src={reviewImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <button 
+                type="button" 
+                onClick={() => setReviewImage('')}
+                style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                &times;
+              </button>
+            </div>
+          )}
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={handlePhotoUpload} 
+            disabled={uploading} 
+            style={{ fontSize: '12px' }}
+          />
+        </div>
+        {uploading && <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px', display: 'block' }}>Đang tải hình ảnh lên...</span>}
+      </div>
+
       {error && <p className="form__error">{error}</p>}
       {success && <p className="form__success">{success}</p>}
       <div className="review-form__actions">

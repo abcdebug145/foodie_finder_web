@@ -50,6 +50,7 @@ const CATEGORY_ICONS = {
 
 export default function PreferenceSelectorModal({ onClose, forceMode = false }) {
   const containerRef = useRef(null);
+  const overlayRef = useRef(null);
   const modalRef = useRef(null);
   const { currentUser, updateProfile } = useAuth();
   
@@ -69,26 +70,43 @@ export default function PreferenceSelectorModal({ onClose, forceMode = false }) 
   // GSAP animation for opening modal
   useGSAP(
     () => {
+      gsap.set(overlayRef.current, { willChange: 'opacity' });
+      gsap.set(modalRef.current, { willChange: 'transform, opacity' });
+
       gsap.fromTo(
-        containerRef.current,
+        overlayRef.current,
         { opacity: 0 },
-        { opacity: 1, duration: 0.25, ease: 'power2.out' }
+        { 
+          opacity: 1, 
+          duration: 0.2, 
+          ease: 'power2.out',
+          force3D: true
+        }
       );
       gsap.fromTo(
         modalRef.current,
-        { y: 50, scale: 0.95, opacity: 0 },
-        { y: 0, scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(1.2)', delay: 0.05 }
+        { y: 30, scale: 0.98, opacity: 0 },
+        { 
+          y: 0, 
+          scale: 1, 
+          opacity: 1, 
+          duration: 0.25, 
+          ease: 'power3.out', 
+          delay: 0.02,
+          force3D: true
+        }
       );
       
       // Animate options grid
       gsap.from('.pref-modal__item', {
         opacity: 0,
-        y: 15,
-        scale: 0.9,
-        duration: 0.3,
-        stagger: 0.05,
+        y: 10,
+        scale: 0.95,
+        duration: 0.25,
+        stagger: 0.03,
         ease: 'power2.out',
-        delay: 0.15
+        delay: 0.1,
+        force3D: true
       });
     },
     { scope: containerRef }
@@ -97,16 +115,16 @@ export default function PreferenceSelectorModal({ onClose, forceMode = false }) 
   // Close animation before unmounting
   const handleClose = () => {
     gsap.to(modalRef.current, {
-      y: 30,
-      scale: 0.95,
+      y: 20,
+      scale: 0.98,
       opacity: 0,
-      duration: 0.2,
+      duration: 0.18,
       ease: 'power2.in',
       force3D: true
     });
-    gsap.to(containerRef.current, {
+    gsap.to(overlayRef.current, {
       opacity: 0,
-      duration: 0.2,
+      duration: 0.18,
       ease: 'power2.in',
       onComplete: onClose,
       force3D: true
@@ -147,16 +165,24 @@ export default function PreferenceSelectorModal({ onClose, forceMode = false }) 
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(42, 29, 25, 0.45)', // Warm coffee overlay
-        backdropFilter: 'blur(8px)',
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px'
       }}
-      onClick={handleClose}
     >
+      <div
+        ref={overlayRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: 'rgba(42, 29, 25, 0.45)', // Warm coffee overlay
+          backdropFilter: 'blur(4px)',
+          zIndex: -1
+        }}
+        onClick={handleClose}
+      />
       <div
         ref={modalRef}
         className="panel glass-panel"

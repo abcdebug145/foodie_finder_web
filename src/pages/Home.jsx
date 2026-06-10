@@ -8,6 +8,13 @@ import SuggestRestaurantModal from '../components/SuggestRestaurantModal.jsx';
 import RecommendationSection from '../components/RecommendationSection.jsx';
 import { toast } from '../components/Toast.jsx';
 
+const HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=900&q=80"
+];
+
 const SORT_OPTIONS = [
   { id: 'rating', label: 'Đánh giá cao nhất' },
   { id: 'reviews', label: 'Nhiều đánh giá nhất' },
@@ -38,9 +45,46 @@ export default function Home() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [pinnedAddress, setPinnedAddress] = useState(() => localStorage.getItem('ff_user_address') || null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cardOrder, setCardOrder] = useState([0, 1, 2, 3]);
+  const isAnimating = useRef(false);
 
   const containerRef = useRef(null);
   const heroArtRef = useRef(null);
+
+  const handleCardClick = () => {
+    if (isAnimating.current) return;
+    isAnimating.current = true;
+
+    const cards = heroArtRef.current.querySelectorAll('.hero__art-card');
+    const topCard = Array.from(cards).find(el => el.classList.contains('card-pos-0'));
+    if (!topCard) {
+      isAnimating.current = false;
+      return;
+    }
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        setCardOrder((prev) => {
+          const next = [...prev];
+          const first = next.shift();
+          next.push(first);
+          return next;
+        });
+        gsap.set(topCard, { clearProps: "all" });
+        isAnimating.current = false;
+      }
+    });
+
+    tl.to(topCard, {
+      x: -240,
+      y: -50,
+      rotation: -30,
+      opacity: 0,
+      scale: 0.9,
+      duration: 0.35,
+      ease: 'power2.in'
+    });
+  };
 
   // Dynamic API Fetching
   const fetchRestaurants = async (currentCity, currentCategory, currentSearch, currentSort, currentSkip, append = false) => {
@@ -252,7 +296,6 @@ export default function Home() {
 
       gsap.to(heroArtRef.current, {
         y: 12,
-        rotation: 1,
         duration: 4,
         repeat: -1,
         yoyo: true,
@@ -466,10 +509,15 @@ export default function Home() {
           </div>
           <div className="hero__art" aria-hidden ref={heroArtRef}>
             <div className="hero__art-circle" />
-            <img
-              src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80"
-              alt=""
-            />
+            {cardOrder.map((imgIndex, orderIndex) => (
+              <div
+                key={imgIndex}
+                className={`hero__art-card card-pos-${orderIndex}`}
+                onClick={handleCardClick}
+              >
+                <img src={HERO_IMAGES[imgIndex]} alt="" />
+              </div>
+            ))}
           </div>
         </div>
       </section>

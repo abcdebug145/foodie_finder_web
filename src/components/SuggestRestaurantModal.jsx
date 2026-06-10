@@ -13,9 +13,11 @@ const CATEGORIES = [
 
 export default function SuggestRestaurantModal({ onClose }) {
   const containerRef = useRef(null);
+  const overlayRef = useRef(null);
   const modalRef = useRef(null);
   const { addRestaurant } = useRestaurants();
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -30,18 +32,67 @@ export default function SuggestRestaurantModal({ onClose }) {
     image: ''
   });
 
-  // Tải hiệu ứng trượt nẩy nhẹ khi hiển thị modal
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploading(true);
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setForm(prev => ({ ...prev, image: data.url }));
+      toast('Tải ảnh quán ăn lên thành công!', 'success');
+    } catch (err) {
+      console.error(err);
+      toast('Lỗi khi tải ảnh quán ăn lên.', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Tải hiệu ứng trượt mượt mà bằng cách tách biệt overlay và modal content
   useGSAP(
     () => {
+      gsap.set(overlayRef.current, { willChange: 'opacity' });
+      gsap.set(modalRef.current, { willChange: 'transform, opacity' });
+
       gsap.fromTo(
-        containerRef.current,
+        overlayRef.current,
         { opacity: 0 },
-        { opacity: 1, duration: 0.25, ease: 'power2.out' }
+        { 
+          opacity: 1, 
+          duration: 0.2, 
+          ease: 'power2.out',
+          force3D: true
+        }
       );
       gsap.fromTo(
         modalRef.current,
-        { y: 60, scale: 0.95, opacity: 0 },
-        { y: 0, scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(1.2)', delay: 0.05 }
+        { y: 30, scale: 0.98, opacity: 0 },
+        { 
+          y: 0, 
+          scale: 1, 
+          opacity: 1, 
+          duration: 0.25, 
+          ease: 'power3.out', 
+          delay: 0.02,
+          force3D: true
+        }
       );
     },
     { scope: containerRef }
@@ -50,16 +101,16 @@ export default function SuggestRestaurantModal({ onClose }) {
   // Đóng modal kèm theo chuyển động trượt đi rồi mới unmount
   const handleClose = () => {
     gsap.to(modalRef.current, {
-      y: 40,
-      scale: 0.95,
+      y: 20,
+      scale: 0.98,
       opacity: 0,
-      duration: 0.25,
+      duration: 0.18,
       ease: 'power2.in',
       force3D: true
     });
-    gsap.to(containerRef.current, {
+    gsap.to(overlayRef.current, {
       opacity: 0,
-      duration: 0.25,
+      duration: 0.18,
       ease: 'power2.in',
       onComplete: onClose,
       force3D: true
@@ -85,16 +136,24 @@ export default function SuggestRestaurantModal({ onClose }) {
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(42, 29, 25, 0.45)', // Warm coffee overlay
-        backdropFilter: 'blur(8px)',
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px'
       }}
-      onClick={handleClose}
     >
+      <div
+        ref={overlayRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: 'rgba(42, 29, 25, 0.45)', // Warm coffee overlay
+          backdropFilter: 'blur(4px)',
+          zIndex: -1
+        }}
+        onClick={handleClose}
+      />
       <div
         ref={modalRef}
         className="panel glass-panel"
@@ -243,13 +302,24 @@ export default function SuggestRestaurantModal({ onClose }) {
           </label>
 
           <label className="form__field">
-            <span>Ảnh bìa quán (URL hình ảnh)</span>
-            <input
-              type="url"
-              placeholder="Nhập liên kết ảnh đẹp về quán..."
-              value={form.image}
-              onChange={(e) => setForm({ ...form, image: e.target.value })}
-            />
+            <span>Ảnh bìa quán</span>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
+              {form.image && (
+                <img 
+                  src={form.image} 
+                  alt="Restaurant preview" 
+                  style={{ width: '60px', height: '40px', borderRadius: '2px', objectFit: 'cover', border: '1px solid var(--border)' }} 
+                />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                style={{ fontSize: '13px' }}
+              />
+            </div>
+            {uploading && <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px', display: 'block' }}>Đang tải ảnh lên...</span>}
           </label>
 
           <label className="form__field">

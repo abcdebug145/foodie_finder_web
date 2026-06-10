@@ -556,20 +556,76 @@ img {
 
 .hero__art {
   position: relative;
-  display: flex;
-  justify-content: center;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 4/3;
+  margin: 0 auto;
   z-index: 10;
 }
 
-.hero__art img {
-  position: relative;
+.hero__art-card {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  max-width: 420px;
-  height: auto;
-  object-fit: cover;
+  height: 100%;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   border: 4px solid var(--bg-dark);
+  overflow: hidden;
+  cursor: pointer;
+  transform-origin: center bottom;
+  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+  user-select: none;
+}
+
+.hero__art-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Card positions - stack effect */
+.card-pos-0 {
+  transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  z-index: 10;
+}
+
+.card-pos-1 {
+  transform: translate3d(0, -8px, 0) rotate(0deg) scale(0.96);
+  z-index: 9;
+}
+
+.card-pos-2 {
+  transform: translate3d(0, -16px, 0) rotate(0deg) scale(0.92);
+  z-index: 8;
+}
+
+.card-pos-3 {
+  transform: translate3d(0, -24px, 0) rotate(0deg) scale(0.88);
+  z-index: 7;
+}
+
+/* Hover effect: fan out like a deck of cards */
+.hero__art:hover .card-pos-0 {
+  transform: translate3d(-40px, -10px, 0) rotate(-8deg) scale(1.02);
+  box-shadow: 0 15px 35px rgba(42, 29, 25, 0.15);
+}
+
+.hero__art:hover .card-pos-1 {
+  transform: translate3d(-12px, -3px, 0) rotate(-3deg) scale(1.01);
+  box-shadow: 0 12px 28px rgba(42, 29, 25, 0.12);
+}
+
+.hero__art:hover .card-pos-2 {
+  transform: translate3d(16px, 5px, 0) rotate(4deg) scale(1);
+  box-shadow: 0 10px 24px rgba(42, 29, 25, 0.1);
+}
+
+.hero__art:hover .card-pos-3 {
+  transform: translate3d(44px, 12px, 0) rotate(9deg) scale(0.99);
+  box-shadow: 0 8px 20px rgba(42, 29, 25, 0.08);
 }
 
 /* ========== Content Sections ========== */
@@ -1363,13 +1419,78 @@ img {
 }
 
 .profile__avatar {
-  width: 120px;
-  height: 120px;
+  width: 100%;
+  height: 100%;
   border-radius: var(--radius-md);
   object-fit: cover;
-  margin: 0 auto 24px;
   border: 4px solid var(--bg-dark);
   box-shadow: var(--shadow-lg);
+}
+
+.profile__avatar-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 24px;
+}
+
+.profile__avatar-container--editing {
+  cursor: pointer;
+}
+
+.profile__avatar-container--editing:hover .profile__avatar {
+  filter: brightness(0.6) blur(0.5px);
+}
+
+.profile__avatar-overlay {
+  position: absolute;
+  inset: 4px;
+  border-radius: var(--radius-md);
+  background: rgba(42, 29, 25, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-light);
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: scale(0.95);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+}
+
+.profile__avatar-container--editing:hover .profile__avatar-overlay {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.profile__avatar-loading {
+  position: absolute;
+  inset: 4px;
+  border-radius: var(--radius-md);
+  background: rgba(42, 29, 25, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.profile__avatar-loading .spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(232, 153, 81, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .profile__card h2 {
