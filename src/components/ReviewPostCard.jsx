@@ -7,17 +7,54 @@ import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from './Toast.jsx';
 import ReportModal from './ReportModal.jsx';
+import ReviewImageLightbox from './ReviewImageLightbox.jsx';
+import LoginPromptModal from './LoginPromptModal.jsx';
+
+// Parser for review.image_urls supporting semicolon separated, array, JSON formats
+const parseImageUrls = (imageUrls) => {
+  if (!imageUrls) return [];
+
+  if (Array.isArray(imageUrls)) {
+    return imageUrls.flatMap(item => typeof item === 'string' ? item.split(';') : item).filter(Boolean);
+  }
+
+  if (typeof imageUrls === 'string') {
+    let cleaned = imageUrls.trim();
+    if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) {
+          return parsed.flatMap(item => typeof item === 'string' ? item.split(';') : item).filter(Boolean);
+        }
+      } catch (e) {
+        cleaned = cleaned.slice(1, -1);
+      }
+    }
+    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+      cleaned = cleaned.slice(1, -1);
+    }
+    return cleaned.split(/;|,/).map(url => url.trim().replace(/^['"\\s]+|['"\\s]+$/g, '')).filter(Boolean);
+  }
+
+  return [];
+};
 
 export default function ReviewPostCard({ review }) {
   const { toggleLikeReview, addCommentToReview } = useReviews();
   const { getRestaurant } = useRestaurants();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const parsedImages = parseImageUrls(review.image_urls);
+  const totalCount = parsedImages.length;
+  const displayImages = parsedImages.slice(0, 4);
 
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [restaurant, setRestaurant] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const [loginPrompt, setLoginPrompt] = useState(false);
+
   const heartRef = useRef(null);
   const commentsWrapperRef = useRef(null);
 
@@ -41,12 +78,10 @@ export default function ReviewPostCard({ review }) {
   const handleLike = (e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để thả tim.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
 
-    // Chạy timeline nảy tim nhanh
     if (!hasLiked && heartRef.current) {
       gsap.timeline()
         .to(heartRef.current, { scale: 1.4, duration: 0.15, ease: 'power1.out' })
@@ -65,8 +100,7 @@ export default function ReviewPostCard({ review }) {
   const handleReportClick = (e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để báo cáo vi phạm.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     setShowReportModal(true);
@@ -86,8 +120,7 @@ export default function ReviewPostCard({ review }) {
   const handleSendComment = async (e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để bình luận.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     if (!commentText.trim()) return;
@@ -105,8 +138,6 @@ export default function ReviewPostCard({ review }) {
       toast(res.error, 'error');
     }
   };
-
-
 
   // Định dạng ngày hiển thị dễ thương
   const formatDate = (dateStr) => {
@@ -139,7 +170,7 @@ export default function ReviewPostCard({ review }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h4 style={{ margin: '0', fontSize: '15px', fontWeight: '700' }}>{review.userName}</h4>
-              
+
               {/* Số sao đánh giá nằm ngay cạnh tên người dùng ở bên trái */}
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 {Array.from({ length: 5 }).map((_, idx) => (
@@ -164,7 +195,7 @@ export default function ReviewPostCard({ review }) {
             </span>
           </div>
         </div>
-        
+
         {/* Tên quán ăn nằm bên phải */}
         <div>
           {restaurant ? (
@@ -182,7 +213,7 @@ export default function ReviewPostCard({ review }) {
                 padding: '4px 10px',
                 borderRadius: '2px',
                 textDecoration: 'none',
-                maxWidth: '240px', // Dài thêm xíu nữa
+                maxWidth: '240px',
                 fontFamily: 'var(--font-mono)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.02em',
@@ -213,16 +244,72 @@ export default function ReviewPostCard({ review }) {
         {review.content}
       </p>
 
-      {/* ── Review Image (Cloudinary) ── */}
-      {review.image_urls && (
-        <div style={{ marginBottom: '16px', borderRadius: '2px', overflow: 'hidden', border: '1px solid var(--border)', maxWidth: '100%', display: 'inline-block' }}>
-          <img 
-            src={review.image_urls} 
-            alt="Review attachment" 
-            style={{ maxHeight: '300px', width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }} 
-          />
+      {/* ── Review Images ── */}
+      {totalCount > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+          {displayImages.map((imgUrl, idx) => {
+            const showOverlay = idx === 3 && totalCount > 4;
+            return (
+              <div
+                key={idx}
+                style={{
+                  borderRadius: '2px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  width: '80px',
+                  height: '80px',
+                  flexShrink: 0
+                }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setLightboxIndex(idx)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setLightboxIndex(idx);
+                  }
+                }}
+              >
+                <img
+                  src={imgUrl}
+                  alt={`Review attachment ${idx + 1}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />
+                {showOverlay && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                    backdropFilter: 'blur(3px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    fontSize: '16px',
+                    fontWeight: '800',
+                    fontFamily: 'var(--font-mono)'
+                  }}>
+                    +{totalCount - 3}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      <ReviewImageLightbox
+        images={parsedImages}
+        initialIndex={lightboxIndex}
+        onClose={() => setLightboxIndex(-1)}
+      />
 
       {/* 4. Footer: Nút tương tác */}
       <div
@@ -393,6 +480,7 @@ export default function ReviewPostCard({ review }) {
           </form>
         </div>
       )}
+
       {showReportModal && (
         <ReportModal
           targetType="review"
@@ -401,6 +489,12 @@ export default function ReviewPostCard({ review }) {
           onClose={() => setShowReportModal(false)}
         />
       )}
+
+      <LoginPromptModal
+        open={loginPrompt}
+        onClose={() => setLoginPrompt(false)}
+        message="Bạn cần đăng nhập để sử dụng tính năng này."
+      />
     </div>
   );
 }

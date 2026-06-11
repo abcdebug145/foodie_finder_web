@@ -81,8 +81,13 @@ export function ReviewsProvider({ children }) {
       if (!response.ok) return { ok: false, error: 'Thao tác thất bại.' };
 
       const updatedReview = await response.json();
-      setReviews(prev => prev.map(r => r.id === reviewId ? updatedReview : r));
-      return { ok: true };
+      // Upsert: update if present, otherwise prepend so localReviews merge works
+      setReviews(prev => {
+        const exists = prev.some(r => r.id === reviewId);
+        if (exists) return prev.map(r => r.id === reviewId ? updatedReview : r);
+        return [updatedReview, ...prev];
+      });
+      return { ok: true, review: updatedReview };
     } catch (e) {
       console.error(e);
       return { ok: false, error: 'Đã xảy ra lỗi kết nối.' };
@@ -102,8 +107,12 @@ export function ReviewsProvider({ children }) {
       if (!response.ok) return { ok: false, error: 'Bình luận thất bại.' };
 
       const updatedReview = await response.json();
-      setReviews(prev => prev.map(r => r.id === reviewId ? updatedReview : r));
-      return { ok: true };
+      setReviews(prev => {
+        const exists = prev.some(r => r.id === reviewId);
+        if (exists) return prev.map(r => r.id === reviewId ? updatedReview : r);
+        return [updatedReview, ...prev];
+      });
+      return { ok: true, review: updatedReview };
     } catch (e) {
       console.error(e);
       return { ok: false, error: 'Đã xảy ra lỗi kết nối.' };
@@ -123,8 +132,12 @@ export function ReviewsProvider({ children }) {
       if (!response.ok) return { ok: false, error: 'Phản hồi thất bại.' };
 
       const updatedReview = await response.json();
-      setReviews(prev => prev.map(r => r.id === reviewId ? updatedReview : r));
-      return { ok: true };
+      setReviews(prev => {
+        const exists = prev.some(r => r.id === reviewId);
+        if (exists) return prev.map(r => r.id === reviewId ? updatedReview : r);
+        return [updatedReview, ...prev];
+      });
+      return { ok: true, review: updatedReview };
     } catch (e) {
       console.error(e);
       return { ok: false, error: 'Đã xảy ra lỗi kết nối.' };

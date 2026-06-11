@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useReviews } from '../context/ReviewsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useFavorites } from '../context/FavoritesContext.jsx';
 import ReviewCard from './ReviewCard.jsx';
+import LoginPromptModal from './LoginPromptModal.jsx';
 import { toast } from './Toast.jsx';
 import { getSessionId } from '../utils/session.js';
 import { formatCategory } from '../utils/category.js';
@@ -18,6 +19,7 @@ export default function RestaurantReviewPair({ restaurant }) {
 
   const [localReviews, setLocalReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [loginPrompt, setLoginPrompt] = useState(false);
 
   // Pagination states for reviews
   const [reviewsSkip, setReviewsSkip] = useState(0);
@@ -127,12 +129,16 @@ export default function RestaurantReviewPair({ restaurant }) {
     e.preventDefault();
     e.stopPropagation();
     if (!currentUser) {
-      toast('Bồ cần đăng nhập để thêm vào danh sách yêu thích nha!', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     toggleFavorite(restaurant.id);
   };
+
+  // Patch localReviews when a child ReviewCard reports a like/comment update
+  const handleReviewUpdate = useCallback((updatedReview) => {
+    setLocalReviews(prev => prev.map(r => r.id === updatedReview.id ? updatedReview : r));
+  }, []);
 
   // Scroll handler for infinite scroll of reviews (triggering at 75% scroll depth)
   const handleScroll = (e) => {
@@ -307,7 +313,7 @@ export default function RestaurantReviewPair({ restaurant }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 24px 24px 24px' }}>
             {reviewsToDisplay.map((rev) => (
-              <ReviewCard key={rev.id} review={rev} />
+              <ReviewCard key={rev.id} review={rev} onReviewUpdate={handleReviewUpdate} />
             ))}
             {loadingMoreReviews && (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0', color: 'var(--text-muted)', gap: '8px', alignItems: 'center' }}>
@@ -320,6 +326,11 @@ export default function RestaurantReviewPair({ restaurant }) {
           </div>
         )}
       </div>
+      <LoginPromptModal
+        open={loginPrompt}
+        onClose={() => setLoginPrompt(false)}
+        message="Bồ cần đăng nhập để thêm quán vào danh sách yêu thích nha!"
+      />
     </div>
   );
 }

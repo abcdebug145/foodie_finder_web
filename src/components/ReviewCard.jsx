@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from './Toast.jsx';
 import { getSessionId } from '../utils/session.js';
 import ReportModal from './ReportModal.jsx';
+import ReviewImageLightbox from './ReviewImageLightbox.jsx';
+import LoginPromptModal from './LoginPromptModal.jsx';
 
 // ── Aspect label map ────────────────────────────────────────────────────────
 const ASPECT_LABELS = {
@@ -142,13 +144,13 @@ const formatDate = (dateStr, includeYear = true) => {
     } else {
       parsed = new Date(dateStr);
     }
-    
+
     if (isNaN(parsed.getTime())) return dateStr;
-    
-    const options = includeYear 
+
+    const options = includeYear
       ? { day: 'numeric', month: 'short', year: 'numeric' }
       : { day: 'numeric', month: 'short' };
-      
+
     return parsed.toLocaleDateString('vi-VN', options);
   } catch {
     return dateStr;
@@ -159,11 +161,11 @@ const formatDate = (dateStr, includeYear = true) => {
 function CommentItem({ comment, reviewId, depth = 0 }) {
   const { addReplyToComment } = useReviews();
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
 
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [showReplies, setShowReplies] = useState(false);
+  const [loginPrompt, setLoginPrompt] = useState(false);
   const repliesRef = useRef(null);
 
   const replies = comment.replies || [];
@@ -184,8 +186,7 @@ function CommentItem({ comment, reviewId, depth = 0 }) {
   const handleSendReply = async (e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để phản hồi.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     if (!replyText.trim()) return;
@@ -311,6 +312,12 @@ function CommentItem({ comment, reviewId, depth = 0 }) {
           </div>
         )}
       </div>
+
+      <LoginPromptModal
+        open={loginPrompt}
+        onClose={() => setLoginPrompt(false)}
+        message="Bạn cần đăng nhập để phản hồi bình luận."
+      />
     </div>
   );
 }
@@ -336,16 +343,50 @@ function AspectBadge({ aspectKey, value }) {
   );
 }
 
+// Parser for review.image_urls supporting semicolon separated, array, JSON formats
+const parseImageUrls = (imageUrls) => {
+  if (!imageUrls) return [];
+
+  if (Array.isArray(imageUrls)) {
+    return imageUrls.flatMap(item => typeof item === 'string' ? item.split(';') : item).filter(Boolean);
+  }
+
+  if (typeof imageUrls === 'string') {
+    let cleaned = imageUrls.trim();
+    if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) {
+          return parsed.flatMap(item => typeof item === 'string' ? item.split(';') : item).filter(Boolean);
+        }
+      } catch (e) {
+        cleaned = cleaned.slice(1, -1);
+      }
+    }
+    if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+      cleaned = cleaned.slice(1, -1);
+    }
+    return cleaned.split(/;|,/).map(url => url.trim().replace(/^['"\\s]+|['"\\s]+$/g, '')).filter(Boolean);
+  }
+
+  return [];
+};
+
 // ── Main ReviewCard ───────────────────────────────────────────────────────────
-export default function ReviewCard({ review, showRestaurantLink = false }) {
+export default function ReviewCard({ review, showRestaurantLink = false, onReviewUpdate }) {
   const { toggleLikeReview, addCommentToReview } = useReviews();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const parsedImages = parseImageUrls(review.image_urls);
+  const totalCount = parsedImages.length;
+  const displayImages = parsedImages.slice(0, 4);
 
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showAllAspects, setShowAllAspects] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const [loginPrompt, setLoginPrompt] = useState(false);
 
   const heartRef = useRef(null);
   const commentsWrapperRef = useRef(null);
@@ -354,15 +395,14 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   // Track continuous visibility of review card for 3 seconds to log it as "viewed"
   useEffect(() => {
     if (!review.id) return;
-    
+
     let timer = null;
     let viewedLogged = false;
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !viewedLogged) {
-            // Start 3-second continuous visibility timer
             timer = setTimeout(async () => {
               viewedLogged = true;
               const token = localStorage.getItem('ff_token');
@@ -382,7 +422,6 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
               }
             }, 3000);
           } else {
-            // Scroll away, clear the timer
             if (timer) {
               clearTimeout(timer);
               timer = null;
@@ -418,20 +457,19 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   // Collect non-null aspects
   const aspects = Object.keys(ASPECT_LABELS)
     .map(k => ({ key: k, value: review[k] }))
-    .filter(a => a.value && 
-                 typeof a.value === 'string' && 
-                 a.value.toLowerCase() !== 'none' && 
+    .filter(a => a.value &&
+                 typeof a.value === 'string' &&
+                 a.value.toLowerCase() !== 'none' &&
                  SENTIMENT_STYLE[a.value.toLowerCase()]
     );
 
   const visibleAspects = showAllAspects ? aspects : aspects.slice(0, 4);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  const handleLike = useCallback((e) => {
+  const handleLike = useCallback(async (e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để thả tim.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     if (!hasLiked && heartRef.current) {
@@ -440,8 +478,9 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
         .to(heartRef.current, { scale: 0.88, duration: 0.12 })
         .to(heartRef.current, { scale: 1,    duration: 0.1,  ease: 'power1.inOut' });
     }
-    toggleLikeReview(review.id, currentUser.id);
-  }, [currentUser, hasLiked, review.id, toggleLikeReview, navigate]);
+    const res = await toggleLikeReview(review.id, currentUser.id);
+    if (res?.ok && res.review && onReviewUpdate) onReviewUpdate(res.review);
+  }, [currentUser, hasLiked, review.id, toggleLikeReview, onReviewUpdate]);
 
   const handleToggleComments = useCallback(() => {
     setShowComments(prev => !prev);
@@ -450,12 +489,11 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   const handleReportClick = useCallback((e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để báo cáo vi phạm.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     setShowReportModal(true);
-  }, [currentUser, navigate]);
+  }, [currentUser]);
 
   useGSAP(() => {
     if (showComments && commentsWrapperRef.current) {
@@ -470,8 +508,7 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
   const handleSendComment = useCallback(async (e) => {
     e.preventDefault();
     if (!currentUser) {
-      toast('Bạn cần đăng nhập để bình luận.', 'error');
-      navigate('/login');
+      setLoginPrompt(true);
       return;
     }
     if (!commentText.trim()) return;
@@ -483,12 +520,11 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
     if (res.ok) {
       setCommentText('');
       toast('Đã đăng bình luận!', 'success');
+      if (res.review && onReviewUpdate) onReviewUpdate(res.review);
     } else {
       toast(res.error, 'error');
     }
-  }, [currentUser, commentText, review.id, addCommentToReview, navigate]);
-
-
+  }, [currentUser, commentText, review.id, addCommentToReview, onReviewUpdate]);
 
   // Level-1 comments (no parent)
   const topComments = (review.comments || []).filter(c => !c.parentId && !c.parent_id);
@@ -542,16 +578,72 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
         {review.text || review.content}
       </p>
 
-      {/* ── Review Image (Cloudinary) ── */}
-      {review.image_urls && (
-        <div style={{ marginBottom: '14px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)', maxWidth: '100%', display: 'inline-block' }}>
-          <img 
-            src={review.image_urls} 
-            alt="Review attachment" 
-            style={{ maxHeight: '300px', width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }} 
-          />
+      {/* ── Review Images ── */}
+      {totalCount > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+          {displayImages.map((imgUrl, idx) => {
+            const showOverlay = idx === 3 && totalCount > 4;
+            return (
+              <div
+                key={idx}
+                style={{
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  width: '80px',
+                  height: '80px',
+                  flexShrink: 0
+                }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setLightboxIndex(idx)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setLightboxIndex(idx);
+                  }
+                }}
+              >
+                <img
+                  src={imgUrl}
+                  alt={`Review attachment ${idx + 1}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />
+                {showOverlay && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                    backdropFilter: 'blur(3px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    fontSize: '16px',
+                    fontWeight: '800',
+                    fontFamily: 'var(--font-mono)'
+                  }}>
+                    +{totalCount - 3}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      <ReviewImageLightbox
+        images={parsedImages}
+        initialIndex={lightboxIndex}
+        onClose={() => setLightboxIndex(-1)}
+      />
 
       {/* ── Aspect Badges ── */}
       {aspects.length > 0 && (
@@ -715,6 +807,7 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
           </form>
         </div>
       )}
+
       {showReportModal && (
         <ReportModal
           targetType="review"
@@ -723,6 +816,12 @@ export default function ReviewCard({ review, showRestaurantLink = false }) {
           onClose={() => setShowReportModal(false)}
         />
       )}
+
+      <LoginPromptModal
+        open={loginPrompt}
+        onClose={() => setLoginPrompt(false)}
+        message="Bạn cần đăng nhập để sử dụng tính năng này."
+      />
     </article>
   );
 }
