@@ -8,7 +8,7 @@ export default function Footer() {
         {/* Brand Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h4 className="footer__title" style={{ fontFamily: 'var(--font)', fontWeight: 900, fontSize: '24px', color: '#ffffff', margin: 0, textTransform: 'uppercase' }}>
-            Foodie<span className="navbar__brand-accent">Finder</span>
+            Foodie<span className="navbar__brand-accent">Homie</span>
           </h4>
           <p className="footer__text" style={{ margin: 0, fontSize: '14px', lineHeight: '1.6' }}>
             Vũ trụ review và săn lùng quán ngon đỉnh nóc kịch trần dành riêng cho thế hệ Foodie Gen Z.
@@ -70,7 +70,7 @@ export default function Footer() {
       </div>
       
       <div className="footer__bottom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '24px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)', fontFamily: 'var(--font-mono)' }}>
-        <span>© {new Date().getFullYear()} FOODIE FINDER. ALL RIGHTS RESERVED.</span>
+        <span>© {new Date().getFullYear()} FOODIE HOMIE. ALL RIGHTS RESERVED.</span>
         <span>DESIGNED FOR GEN Z BY ANTIGRAVITY</span>
       </div>
     </footer>

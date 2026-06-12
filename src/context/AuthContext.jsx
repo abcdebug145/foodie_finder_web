@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
           name: userData.full_name || userData.email,
           email: userData.email,
           avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
-          bio: userData.bio || 'Thành viên của Foodie Finder.',
+          bio: userData.bio || 'Thành viên của Foodie Homie.',
           is_admin: userData.is_admin
         };
         setCurrentUser(user);
@@ -79,7 +79,7 @@ export function AuthProvider({ children }) {
         name: userData.full_name || userData.email,
         email: userData.email,
         avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
-        bio: userData.bio || 'Thành viên của Foodie Finder.',
+        bio: userData.bio || 'Thành viên của Foodie Homie.',
         is_admin: userData.is_admin
       };
       
@@ -170,7 +170,7 @@ export function AuthProvider({ children }) {
       const updatedUser = {
         ...currentUser,
         name: userData.full_name || userData.email,
-        bio: userData.bio || 'Thành viên của Foodie Finder.',
+        bio: userData.bio || 'Thành viên của Foodie Homie.',
         avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`
       };
 

@@ -172,7 +172,7 @@ export default function AppLoader({ onComplete }) {
         </div>
 
         <h2 className="app-loader__title">
-          Foodie<span>Finder</span>
+          Foodie<span>Homie</span>
         </h2>
 
         <div className="app-loader__bar-container">
