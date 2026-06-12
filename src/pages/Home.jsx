@@ -41,7 +41,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [city, setCity] = useState(() => localStorage.getItem('ff_user_city') || 'ha-noi');
+  const [city, setCity] = useState(() => localStorage.getItem('ff_user_city') || 'Hà Nội');
   const [locationLoading, setLocationLoading] = useState(false);
   const [pinnedAddress, setPinnedAddress] = useState(() => localStorage.getItem('ff_user_address') || null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -188,17 +188,19 @@ export default function Home() {
           const address = data.address || {};
           const cityName = address.city || address.state || address.county || address.town || "";
           
-          let detectedCity = 'ha-noi';
+          let detectedCity = 'Hà Nội';
           if (cityName.includes('Hồ Chí Minh') || cityName.includes('Ho Chi Minh') || cityName.includes('Sài Gòn') || cityName.includes('Saigon')) {
-            detectedCity = 'ho-chi-minh';
+            detectedCity = 'Hà Nội'; // Fallback as Ho Chi Minh is not in current dataset
           } else if (cityName.includes('Hà Nội') || cityName.includes('Ha Noi')) {
-            detectedCity = 'ha-noi';
+            detectedCity = 'Hà Nội';
           } else if (cityName.includes('Đà Nẵng') || cityName.includes('Da Nang')) {
-            detectedCity = 'da-nang';
-          } else if (cityName.includes('Cần Thơ') || cityName.includes('Can Tho')) {
-            detectedCity = 'can-tho';
+            detectedCity = 'Đà Nẵng';
           } else if (cityName.includes('Huế') || cityName.includes('Hue') || cityName.includes('Thừa Thiên Huế')) {
-            detectedCity = 'hue';
+            detectedCity = 'Huế';
+          } else if (cityName.includes('Bình Dương') || cityName.includes('Binh Duong')) {
+            detectedCity = 'Bình Dương';
+          } else if (cityName.includes('Lâm Đồng') || cityName.includes('Lam Dong') || cityName.includes('Đà Lạt') || cityName.includes('Da Lat')) {
+            detectedCity = 'Lâm Đồng';
           }
 
           setCity(detectedCity);
@@ -228,13 +230,26 @@ export default function Home() {
     );
   };
 
-  // Run geolocation on mount if no city saved
+  // Run geolocation on mount if no city saved, and migrate old slug values
   useEffect(() => {
     const saved = localStorage.getItem('ff_user_city');
-    if (!saved) {
+    const slugMap = {
+      'ha-noi': 'Hà Nội',
+      'da-nang': 'Đà Nẵng',
+      'binh-duong': 'Bình Dương',
+      'lam-dong': 'Lâm Đồng',
+      'khanh-hoa': 'Khánh Hòa',
+      'hue': 'Huế'
+    };
+    if (saved && slugMap[saved]) {
+      const normalized = slugMap[saved];
+      setCity(normalized);
+      localStorage.setItem('ff_user_city', normalized);
+    } else if (!saved) {
       detectLocation();
     }
   }, []);
+
 
   const filteredRestaurants = restaurants;
 
@@ -419,11 +434,11 @@ export default function Home() {
                           {pinnedAddress.length > 20 ? pinnedAddress.slice(0, 17) + '...' : pinnedAddress}
                         </option>
                       )}
-                      <option value="ha-noi">Hà Nội</option>
-                      <option value="ho-chi-minh">TP. HCM</option>
-                      <option value="da-nang">Đà Nẵng</option>
-                      <option value="can-tho">Cần Thơ</option>
-                      <option value="hue">Huế</option>
+                      <option value="Hà Nội">Hà Nội</option>
+                      <option value="Đà Nẵng">Đà Nẵng</option>
+                      <option value="Huế">Huế</option>
+                      <option value="Bình Dương">Bình Dương</option>
+                      <option value="Lâm Đồng">Lâm Đồng</option>
                     </select>
                 </div>
 

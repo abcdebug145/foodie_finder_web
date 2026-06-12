@@ -58,7 +58,7 @@ export default function AdminDashboard() {
     specialties: '',
     tags: '',
     menu: '',
-    city: 'ha-noi'
+    city: 'Hà Nội'
   });
 
   const token = localStorage.getItem('ff_token');
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
       specialties: rest.serves_dishes ? rest.serves_dishes.replace(/;/g, ', ') : '',
       tags: rest.cuisine_tags ? rest.cuisine_tags.replace(/;/g, ', ') : '',
       menu: rest.menu || '',
-      city: rest.city || 'ha-noi'
+      city: rest.city || 'Hà Nội'
     });
   };
 
@@ -1262,11 +1262,11 @@ export default function AdminDashboard() {
                     style={{ width: '100%', borderRadius: '2px', border: '2px solid var(--border)', padding: '12px 16px', background: 'var(--bg-light)', color: 'var(--text-dark)' }}
                     required
                   >
-                    <option value="ha-noi">Hà Nội</option>
-                    <option value="ho-chi-minh">TP. HCM</option>
-                    <option value="da-nang">Đà Nẵng</option>
-                    <option value="can-tho">Cần Thơ</option>
-                    <option value="hue">Huế</option>
+                    <option value="Hà Nội">Hà Nội</option>
+                    <option value="Đà Nẵng">Đà Nẵng</option>
+                    <option value="Huế">Huế</option>
+                    <option value="Bình Dương">Bình Dương</option>
+                    <option value="Lâm Đồng">Lâm Đồng</option>
                   </select>
                 </label>
               </div>

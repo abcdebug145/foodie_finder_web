@@ -263,7 +263,7 @@ export default function RecommendationSection({ city }) {
       // Cold-start: lấy top-rated theo city
       setIsColdStart(true);
       try {
-        const url = `/api/v1/restaurants/?city=${city || 'ha-noi'}&sort=rating&limit=8`;
+        const url = `/api/v1/restaurants/?city=${city || 'Hà Nội'}&sort=rating&limit=8`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();

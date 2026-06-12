@@ -474,7 +474,7 @@ export default function ChatBot() {
     setInput('');
     setLoading(true);
 
-    const activeCity = localStorage.getItem('ff_user_city') || 'ha-noi';
+    const activeCity = localStorage.getItem('ff_user_city') || 'Hà Nội';
     const activeLat = localStorage.getItem('ff_user_lat') ? parseFloat(localStorage.getItem('ff_user_lat')) : null;
     const activeLon = localStorage.getItem('ff_user_lon') ? parseFloat(localStorage.getItem('ff_user_lon')) : null;
     const activeAddress = localStorage.getItem('ff_user_address') || null;

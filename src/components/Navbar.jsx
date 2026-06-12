@@ -66,6 +66,12 @@ export default function Navbar() {
           <NavLink to="/" end onClick={() => setOpen(false)}>
             Khám phá
           </NavLink>
+          <NavLink to="/feed" onClick={() => setOpen(false)}>
+            Cộng đồng
+          </NavLink>
+          <NavLink to="/vouchers" onClick={() => setOpen(false)}>
+            Ưu đãi
+          </NavLink>
           {currentUser && (
             <NavLink to="/favorites" onClick={() => setOpen(false)}>
               Yêu thích

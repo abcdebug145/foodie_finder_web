@@ -58,6 +58,25 @@ export default function RestaurantDetail() {
   const [showMap, setShowMap] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [verifying, setVerifying] = useState(false);
+
+  // Menu items and booking states
+  const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [preOrder, setPreOrder] = useState({}); // { [itemId]: quantity }
+
+  const getTodayString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const [bookingDate, setBookingDate] = useState(getTodayString());
+  const [bookingTime, setBookingTime] = useState('18:00');
+  const [partySize, setPartySize] = useState(2);
+  const [bookingNote, setBookingNote] = useState('');
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
   
   const containerRef = useRef(null);
   const heroImageRef = useRef(null);
@@ -110,6 +129,132 @@ export default function RestaurantDetail() {
     load();
     return () => { active = false; };
   }, [id, getRestaurant]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchMenu = async () => {
+      setMenuLoading(true);
+      try {
+        const res = await fetch(`/api/v1/menu/restaurant/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            setMenuItems(data);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching menu items:", err);
+      } finally {
+        if (active) {
+          setMenuLoading(false);
+        }
+      }
+    };
+    if (id) {
+      fetchMenu();
+    }
+    return () => { active = false; };
+  }, [id]);
+
+  const menuByCategory = useMemo(() => {
+    if (!menuItems || menuItems.length === 0) return null;
+    const groups = {};
+    menuItems.forEach(item => {
+      const cat = item.category || "Khác";
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [menuItems]);
+
+  const preOrderTotal = useMemo(() => {
+    let total = 0;
+    Object.entries(preOrder).forEach(([itemId, quantity]) => {
+      const item = menuItems.find(i => i.id === parseInt(itemId));
+      if (item && item.price) {
+        total += item.price * quantity;
+      }
+    });
+    return total;
+  }, [preOrder, menuItems]);
+
+  const addToPreOrder = (itemId) => {
+    setPreOrder(prev => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 0) + 1
+    }));
+  };
+
+  const removeFromPreOrder = (itemId) => {
+    setPreOrder(prev => {
+      const next = { ...prev };
+      if (next[itemId] <= 1) {
+        delete next[itemId];
+      } else {
+        next[itemId] = next[itemId] - 1;
+      }
+      return next;
+    });
+  };
+
+  const handleCreateBooking = async (e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      toast('Vui lòng đăng nhập để đặt bàn!', 'error');
+      navigate('/login', { state: { from: `/restaurants/${restaurant.id}` } });
+      return;
+    }
+
+    setBookingSubmitting(true);
+    const token = localStorage.getItem('ff_token');
+
+    const items = Object.entries(preOrder).map(([itemId, quantity]) => {
+      const item = menuItems.find(i => i.id === parseInt(itemId));
+      return {
+        menu_item_id: parseInt(itemId),
+        item_name: item ? item.name : `Món #${itemId}`,
+        quantity: quantity,
+        unit_price: item ? item.price : 0,
+        note: ''
+      };
+    });
+
+    const bookingData = {
+      restaurant_id: restaurant.id,
+      booking_date: bookingDate,
+      booking_time: bookingTime,
+      party_size: partySize,
+      note: bookingNote,
+      items: items
+    };
+
+    try {
+      const res = await fetch('/api/v1/bookings/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(bookingData)
+      });
+
+      if (res.ok) {
+        toast('Đặt bàn & Pre-order thành công! Đã tự động xác nhận.', 'success');
+        setPreOrder({});
+        setBookingNote('');
+      } else {
+        const err = await res.json();
+        toast(err.detail || 'Đặt bàn thất bại.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      toast('Lỗi kết nối máy chủ.', 'error');
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -425,7 +570,139 @@ export default function RestaurantDetail() {
           {/* Áp dụng class glass-panel cho giao diện kính mờ sang trọng */}
           <section className="panel glass-panel">
             <h2 className="panel__title">Thực đơn</h2>
-            {parsedMenu ? (
+            {menuLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '20px 0' }}>
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <circle cx="12" cy="12" r="10" stroke="rgba(42, 29, 25, 0.2)" strokeDasharray="32" strokeDashoffset="8" />
+                </svg>
+                <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Đang tải menu mới nhất...</span>
+              </div>
+            ) : menuByCategory ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px' }}>
+                {Object.entries(menuByCategory).map(([catName, items]) => (
+                  <div key={catName}>
+                    <h3 style={{ fontSize: '15px', fontWeight: '800', borderBottom: '1.5px solid var(--border)', paddingBottom: '6px', marginBottom: '14px', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {catName}
+                    </h3>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                      gap: '16px'
+                    }}>
+                      {items.map(item => (
+                        <div 
+                          key={item.id}
+                          style={{
+                            display: 'flex',
+                            gap: '16px',
+                            padding: '12px',
+                            background: 'var(--bg-subtle)',
+                            borderRadius: 'var(--radius-lg)',
+                            border: '1px solid var(--border)',
+                            alignItems: 'center',
+                            position: 'relative'
+                          }}
+                        >
+                          {item.image_url ? (
+                            <img 
+                              src={item.image_url} 
+                              alt={item.name} 
+                              style={{
+                                width: '70px',
+                                height: '70px',
+                                objectFit: 'cover',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border)',
+                                flexShrink: 0
+                              }} 
+                            />
+                          ) : (
+                            <div style={{
+                              width: '70px',
+                              height: '70px',
+                              background: 'rgba(42,29,25,0.05)',
+                              borderRadius: 'var(--radius-md)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontSize: '24px',
+                              flexShrink: 0
+                            }}>
+                              🍲
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, flex: 1 }}>
+                            <strong 
+                              style={{ 
+                                fontSize: '14px', 
+                                color: 'var(--text-dark)', 
+                                lineHeight: '1.4',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                              title={item.name}
+                            >
+                              {item.name}
+                            </strong>
+                            {item.description && (
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {item.description}
+                              </span>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                              <span style={{ fontSize: '13.5px', color: 'var(--primary)', fontWeight: '700', fontFamily: 'var(--font-mono)' }}>
+                                {item.price ? `${item.price.toLocaleString('vi-VN')}đ` : 'Liên hệ'}
+                              </span>
+                              
+                              {/* Quantity Selector for Pre-order */}
+                              {currentUser && item.is_available && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {preOrder[item.id] ? (
+                                    <>
+                                      <button 
+                                        type="button"
+                                        onClick={() => removeFromPreOrder(item.id)}
+                                        style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: '800' }}
+                                      >
+                                        -
+                                      </button>
+                                      <span style={{ fontSize: '13px', fontWeight: '700', minWidth: '16px', textAlign: 'center' }}>
+                                        {preOrder[item.id]}
+                                      </span>
+                                    </>
+                                  ) : null}
+                                  <button 
+                                    type="button"
+                                    onClick={() => addToPreOrder(item.id)}
+                                    style={{ 
+                                      width: '22px', 
+                                      height: '22px', 
+                                      borderRadius: '50%', 
+                                      border: 'none', 
+                                      background: 'var(--primary)', 
+                                      color: 'var(--bg-dark)', 
+                                      cursor: 'pointer', 
+                                      display: 'grid', 
+                                      placeItems: 'center', 
+                                      fontSize: '12px', 
+                                      fontWeight: '800' 
+                                    }}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : parsedMenu ? (
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -443,10 +720,7 @@ export default function RestaurantDetail() {
                       borderRadius: 'var(--radius-lg)',
                       border: '1px solid var(--border)',
                       alignItems: 'center',
-                      transition: 'transform 0.2s, border-color 0.2s',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = 'var(--border)'; }}
                   >
                     {info.img_url && (
                       <img 
@@ -463,21 +737,7 @@ export default function RestaurantDetail() {
                       />
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-                      <strong 
-                        style={{ 
-                          fontSize: '14px', 
-                          color: 'var(--text-dark)', 
-                          lineHeight: '1.4',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                        title={name}
-                      >
-                        {name}
-                      </strong>
+                      <strong style={{ fontSize: '14px', color: 'var(--text-dark)', lineHeight: '1.4' }}>{name}</strong>
                       <span style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: '700', fontFamily: 'var(--font-mono)' }}>
                         {info.price}
                       </span>
@@ -611,6 +871,128 @@ export default function RestaurantDetail() {
         </div>
 
         <aside className="detail__aside">
+          {/* Booking & Pre-order Panel */}
+          <div className="panel glass-panel" style={{ border: '2px solid var(--primary)', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '-10px', left: '16px', background: 'var(--primary)', color: 'var(--bg-dark)', padding: '2px 8px', fontSize: '11px', fontWeight: '800', borderRadius: '4px', textTransform: 'uppercase' }}>
+              Online Booking
+            </div>
+            <h3 className="panel__title" style={{ marginTop: '6px' }}>Đặt bàn & Gọi món</h3>
+            
+            {!currentUser ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <p style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.5' }}>
+                  Đăng nhập để đặt bàn giữ chỗ trực tuyến và chọn trước thực đơn của nhà hàng.
+                </p>
+                <button
+                  onClick={() => navigate('/login', { state: { from: `/restaurants/${restaurant.id}` } })}
+                  className="btn btn--primary btn--block"
+                  style={{ fontSize: '12px', padding: '10px 16px' }}
+                >
+                  Đăng nhập ngay
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateBooking} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Ngày đặt bàn</label>
+                  <input
+                    type="date"
+                    required
+                    min={getTodayString()}
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--text-dark)', fontSize: '13.5px', fontFamily: 'var(--font)' }}
+                  />
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Giờ đặt</label>
+                    <select
+                      value={bookingTime}
+                      onChange={(e) => setBookingTime(e.target.value)}
+                      style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--text-dark)', fontSize: '13.5px', fontFamily: 'var(--font)' }}
+                    >
+                      {["11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"].map(slot => (
+                        <option key={slot} value={slot}>{slot}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Số khách</label>
+                    <select
+                      value={partySize}
+                      onChange={(e) => setPartySize(parseInt(e.target.value))}
+                      style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--text-dark)', fontSize: '13.5px', fontFamily: 'var(--font)' }}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map(num => (
+                        <option key={num} value={num}>{num} người</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Pre-order Basket display */}
+                {Object.keys(preOrder).length > 0 && (
+                  <div style={{ background: 'var(--bg-subtle)', border: '1px dashed var(--primary)', borderRadius: 'var(--radius-md)', padding: '12px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '6px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-dark)' }}>Thực đơn gọi trước:</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setPreOrder({})}
+                        style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: '11px', cursor: 'pointer', fontWeight: '700' }}
+                      >
+                        Xóa tất cả
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {Object.entries(preOrder).map(([itemId, quantity]) => {
+                        const item = menuItems.find(i => i.id === parseInt(itemId));
+                        if (!item) return null;
+                        return (
+                          <div key={itemId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
+                            <span style={{ color: 'var(--text-dark)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                              {item.name} <small style={{ color: 'var(--text-muted)' }}>x{quantity}</small>
+                            </span>
+                            <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)' }}>
+                              {item.price ? `${(item.price * quantity).toLocaleString('vi-VN')}đ` : '0đ'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: '8px', marginTop: '8px', fontSize: '13px', fontWeight: '800' }}>
+                      <span>Tổng tạm tính:</span>
+                      <span style={{ color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
+                        {preOrderTotal.toLocaleString('vi-VN')}đ
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-dark)', textTransform: 'uppercase' }}>Ghi chú đặt bàn</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Yêu cầu đặc biệt (VD: bàn ngoài trời, ghế trẻ em...)"
+                    value={bookingNote}
+                    onChange={(e) => setBookingNote(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--text-dark)', fontSize: '13px', fontFamily: 'var(--font)' }}
+                  />
+                </div>
+                
+                <button
+                  type="submit"
+                  disabled={bookingSubmitting}
+                  className="btn btn--primary btn--block"
+                  style={{ padding: '12px', fontSize: '13px' }}
+                >
+                  {bookingSubmitting ? 'Đang gửi...' : 'Xác nhận đặt bàn'}
+                </button>
+              </form>
+            )}
+          </div>
+
           <div className="panel glass-panel">
             <h3 className="panel__title">Thông tin liên hệ</h3>
             <ul className="info-list">

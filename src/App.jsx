@@ -11,6 +11,8 @@ import Favorites from './pages/Favorites.jsx';
 import Profile from './pages/Profile.jsx';
 import NotFound from './pages/NotFound.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import Feed from './pages/Feed.jsx';
+import Vouchers from './pages/Vouchers.jsx';
 import AppLoader from './components/AppLoader.jsx';
 import FloatingFood from './components/FloatingFood.jsx';
 import ToastContainer from './components/Toast.jsx';
@@ -78,6 +80,16 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/feed" element={<Feed />} />
+            <Route path="/vouchers" element={<Vouchers />} />
             <Route
               path="/admin"
               element={

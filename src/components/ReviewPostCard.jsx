@@ -9,6 +9,8 @@ import { toast } from './Toast.jsx';
 import ReportModal from './ReportModal.jsx';
 import ReviewImageLightbox from './ReviewImageLightbox.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
+import CommentItem from './CommentItem.jsx';
+
 
 // Parser for review.image_urls supporting semicolon separated, array, JSON formats
 const parseImageUrls = (imageUrls) => {
@@ -44,12 +46,51 @@ export default function ReviewPostCard({ review }) {
   const { getRestaurant } = useRestaurants();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const parsedImages = parseImageUrls(review.image_urls);
+  const parsedImages = review.images 
+    ? (Array.isArray(review.images) ? review.images.map(img => typeof img === 'string' ? img : img.url) : [])
+    : parseImageUrls(review.image_urls);
   const totalCount = parsedImages.length;
   const displayImages = parsedImages.slice(0, 4);
 
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [commentImage, setCommentImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const commentFileRef = useRef(null);
+
+  const handleCommentImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingImage(true);
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setCommentImage(data.url);
+      toast('Tải ảnh bình luận thành công!', 'success');
+    } catch (err) {
+      console.error(err);
+      toast('Tải ảnh thất bại.', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const [restaurant, setRestaurant] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
@@ -126,13 +167,15 @@ export default function ReviewPostCard({ review }) {
     if (!commentText.trim()) return;
 
     const res = await addCommentToReview(review.id, {
-      userName: currentUser.name,
+      userName: currentUser.name || currentUser.full_name,
       userAvatar: currentUser.avatar,
-      content: commentText
+      content: commentText.trim(),
+      imageUrl: commentImage
     });
 
     if (res.ok) {
       setCommentText('');
+      setCommentImage(null);
       toast('Đăng bình luận thành công!', 'success');
     } else {
       toast(res.error, 'error');
@@ -407,79 +450,109 @@ export default function ReviewPostCard({ review }) {
       </div>
 
       {/* 5. Khung bình luận (Collapsible Panel) */}
-      {showComments && (
-        <div
-          ref={commentsWrapperRef}
-          style={{
-            borderTop: '1px dashed var(--border)',
-            marginTop: '14px',
-            paddingTop: '14px',
-            overflow: 'hidden'
-          }}
-        >
-          {/* Danh sách các bình luận hiện tại */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
-            {review.comments && review.comments.length > 0 ? (
-              review.comments.map((comment) => (
-                <div key={comment.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <img
-                    src={comment.userAvatar || 'https://i.pravatar.cc/150'}
-                    alt={comment.userName}
-                    style={{ width: '28px', height: '28px', borderRadius: '2px', objectFit: 'cover', marginTop: '2px' }}
-                  />
-                  <div
-                    style={{
-                      background: 'var(--bg-subtle, #f3f4f6)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '2px',
-                      padding: '8px 14px',
-                      flex: 1,
-                      fontSize: '13.5px'
-                    }}
-                  >
-                    <strong style={{ display: 'block', marginBottom: '2px', fontSize: '13px' }}>
-                      {comment.userName}
-                    </strong>
-                    <span style={{ color: '#374151' }}>{comment.content}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '6px 0', textAlign: 'center' }}>
-                Chưa có bình luận nào. Hãy bắt đầu cuộc hội thoại!
-              </p>
-            )}
-          </div>
+      {showComments && (() => {
+        const topComments = (review.comments || []).filter(c => !c.parentId && !c.parent_id);
+        return (
+          <div
+            ref={commentsWrapperRef}
+            style={{
+              borderTop: '1px dashed var(--border)',
+              marginTop: '14px',
+              paddingTop: '14px',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Danh sách các bình luận hiện tại */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
+              {topComments.length > 0 ? (
+                topComments.map((comment) => (
+                  <CommentItem key={comment.id} comment={comment} reviewId={review.id} depth={0} />
+                ))
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0 8px', textAlign: 'center' }}>
+                  Chưa có bình luận nào. Hãy bắt đầu cuộc hội thoại! 💬
+                </p>
+              )}
+            </div>
 
-          {/* Hộp viết bình luận mới */}
-          <form onSubmit={handleSendComment} style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="text"
-              placeholder={currentUser ? 'Viết bình luận của bạn...' : 'Đăng nhập để viết bình luận...'}
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              disabled={!currentUser}
-              style={{
-                flex: 1,
-                padding: '10px 14px',
-                borderRadius: '2px',
-                border: '2px solid var(--border)',
-                fontSize: '13.5px',
-                outline: 'none',
-                background: currentUser ? 'white' : '#f9fafb'
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!currentUser || !commentText.trim()}
-              className="btn btn--primary"
-              style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '2px' }}
-            >
-              Gửi
-            </button>
-          </form>
-        </div>
-      )}
+            {/* Attached Image Preview */}
+            {commentImage && (
+              <div style={{ position: 'relative', display: 'inline-block', margin: '0 0 10px 42px' }}>
+                <img 
+                  src={commentImage} 
+                  alt="Preview" 
+                  style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setCommentImage(null)}
+                  style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--danger)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'grid', placeItems: 'center', fontWeight: 'bold' }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Hộp viết bình luận mới */}
+            <form onSubmit={handleSendComment} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <img
+                src={currentUser?.avatar || `https://i.pravatar.cc/150?u=${currentUser?.id || 'guest'}`}
+                alt=""
+                style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, border: '2px solid var(--border)' }}
+              />
+              <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder={currentUser ? 'Viết bình luận...' : 'Đăng nhập để bình luận...'}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  disabled={!currentUser}
+                  style={{
+                    flex: 1,
+                    padding: '9px 16px',
+                    borderRadius: '20px',
+                    border: '2px solid var(--border)',
+                    fontSize: '13.5px',
+                    outline: 'none',
+                    background: currentUser ? 'white' : '#f9fafb',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                />
+                {currentUser && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={uploadingImage}
+                      onClick={() => commentFileRef.current?.click()}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', padding: '4px 8px', display: 'grid', placeItems: 'center' }}
+                      title="Đính kèm hình ảnh"
+                    >
+                      {uploadingImage ? '⏳' : '📷'}
+                    </button>
+                    <input
+                      type="file"
+                      ref={commentFileRef}
+                      accept="image/*"
+                      onChange={handleCommentImageUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </>
+                )}
+                <button
+                  type="submit"
+                  disabled={!currentUser || (!commentText.trim() && !commentImage)}
+                  className="btn btn--primary"
+                  style={{ padding: '8px 18px', fontSize: '13px', borderRadius: '20px', flexShrink: 0 }}
+                >
+                  Gửi
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
 
       {showReportModal && (
         <ReportModal

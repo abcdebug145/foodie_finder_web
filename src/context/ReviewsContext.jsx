@@ -95,14 +95,14 @@ export function ReviewsProvider({ children }) {
   }, []);
 
   // ── Add level-1 comment to review ──────────────────────────────────────────
-  const addCommentToReview = useCallback(async (reviewId, { userName, userAvatar, content }) => {
+  const addCommentToReview = useCallback(async (reviewId, { userName, userAvatar, content, imageUrl }) => {
     if (!content?.trim()) return { ok: false, error: 'Vui lòng nhập nội dung bình luận.' };
     const token = localStorage.getItem('ff_token');
     try {
       const response = await fetch(`/api/v1/reviews/${reviewId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ content: content.trim() })
+        body: JSON.stringify({ content: content.trim(), image_url: imageUrl || null })
       });
       if (!response.ok) return { ok: false, error: 'Bình luận thất bại.' };
 
@@ -144,6 +144,43 @@ export function ReviewsProvider({ children }) {
     }
   }, []);
 
+  // ── Toggle like on a comment ──────────────────────────────────────────────
+  const toggleLikeComment = useCallback(async (commentId, userId) => {
+    if (!userId) return { ok: false, error: 'Bạn cần đăng nhập.' };
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch(`/api/v1/reviews/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) return { ok: false, error: 'Thao tác thất bại.' };
+
+      const likeData = await response.json(); // { id, likeCount, liked }
+      
+      setReviews(prev => prev.map(r => {
+        const hasComment = r.comments?.some(c => c.id.toString() === commentId.toString());
+        if (!hasComment) return r;
+        
+        const updatedComments = r.comments.map(c => {
+          if (c.id.toString() === commentId.toString()) {
+            return {
+              ...c,
+              likeCount: likeData.likeCount,
+              likedByUser: likeData.liked
+            };
+          }
+          return c;
+        });
+        return { ...r, comments: updatedComments };
+      }));
+
+      return { ok: true, data: likeData };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: 'Đã xảy ra lỗi kết nối.' };
+    }
+  }, []);
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const getReviewsByRestaurant = useCallback(
     (restaurantId) => reviews
@@ -169,10 +206,11 @@ export function ReviewsProvider({ children }) {
     toggleLikeReview,
     addCommentToReview,
     addReplyToComment,
+    toggleLikeComment,
   }), [
     reviews, hasMoreReviews, reviewsLoading,
     fetchReviews, addReview, getReviewsByRestaurant, getAverageRating,
-    toggleLikeReview, addCommentToReview, addReplyToComment,
+    toggleLikeReview, addCommentToReview, addReplyToComment, toggleLikeComment,
   ]);
 
   return <ReviewsContext.Provider value={value}>{children}</ReviewsContext.Provider>;

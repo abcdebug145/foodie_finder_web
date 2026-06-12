@@ -32,7 +32,11 @@ export function AuthProvider({ children }) {
           email: userData.email,
           avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
           bio: userData.bio || 'Thành viên của Foodie Homie.',
-          is_admin: userData.is_admin
+          is_admin: userData.is_admin,
+          total_points: userData.total_points || 0,
+          follower_count: userData.follower_count || 0,
+          following_count: userData.following_count || 0,
+          preferences: userData.preferences || []
         };
         setCurrentUser(user);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
@@ -80,7 +84,11 @@ export function AuthProvider({ children }) {
         email: userData.email,
         avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
         bio: userData.bio || 'Thành viên của Foodie Homie.',
-        is_admin: userData.is_admin
+        is_admin: userData.is_admin,
+        total_points: userData.total_points || 0,
+        follower_count: userData.follower_count || 0,
+        following_count: userData.following_count || 0,
+        preferences: userData.preferences || []
       };
       
       setCurrentUser(user);
@@ -171,7 +179,11 @@ export function AuthProvider({ children }) {
         ...currentUser,
         name: userData.full_name || userData.email,
         bio: userData.bio || 'Thành viên của Foodie Homie.',
-        avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`
+        avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
+        total_points: userData.total_points || 0,
+        follower_count: userData.follower_count || 0,
+        following_count: userData.following_count || 0,
+        preferences: userData.preferences || []
       };
 
       setCurrentUser(updatedUser);

@@ -9,6 +9,7 @@ import { getSessionId } from '../utils/session.js';
 import ReportModal from './ReportModal.jsx';
 import ReviewImageLightbox from './ReviewImageLightbox.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
+import CommentItem from './CommentItem.jsx';
 
 // ── Aspect label map ────────────────────────────────────────────────────────
 const ASPECT_LABELS = {
@@ -157,170 +158,7 @@ const formatDate = (dateStr, includeYear = true) => {
   }
 };
 
-// ── Single Comment (supports reply-level display) ───────────────────────────
-function CommentItem({ comment, reviewId, depth = 0 }) {
-  const { addReplyToComment } = useReviews();
-  const { currentUser } = useAuth();
-
-  const [replying, setReplying] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [showReplies, setShowReplies] = useState(false);
-  const [loginPrompt, setLoginPrompt] = useState(false);
-  const repliesRef = useRef(null);
-
-  const replies = comment.replies || [];
-
-  const handleToggleReplies = () => {
-    setShowReplies(prev => !prev);
-  };
-
-  useGSAP(() => {
-    if (showReplies && repliesRef.current) {
-      gsap.fromTo(repliesRef.current,
-        { height: 0, opacity: 0 },
-        { height: 'auto', opacity: 1, duration: 0.3, ease: 'power2.out' }
-      );
-    }
-  }, [showReplies]);
-
-  const handleSendReply = async (e) => {
-    e.preventDefault();
-    if (!currentUser) {
-      setLoginPrompt(true);
-      return;
-    }
-    if (!replyText.trim()) return;
-    const res = await addReplyToComment(reviewId, comment.id, replyText.trim());
-    if (res.ok) {
-      setReplyText('');
-      setReplying(false);
-      setShowReplies(true);
-      toast('Đã gửi phản hồi!', 'success');
-    } else {
-      toast(res.error, 'error');
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-      <img
-        src={comment.userAvatar || `https://i.pravatar.cc/150?u=${comment.userId}`}
-        alt={comment.userName}
-        style={{
-          width: depth === 0 ? '32px' : '26px',
-          height: depth === 0 ? '32px' : '26px',
-          borderRadius: '50%',
-          objectFit: 'cover',
-          flexShrink: 0,
-          marginTop: '2px',
-          border: '2px solid var(--border)'
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          background: depth === 0 ? 'var(--bg-subtle, rgba(243,244,246,0.8))' : 'rgba(232,153,81,0.05)',
-          border: `1px solid ${depth === 0 ? 'var(--border)' : 'rgba(232,153,81,0.2)'}`,
-          borderRadius: '12px',
-          padding: '10px 14px',
-          fontSize: '13.5px',
-        }}>
-          <strong style={{ display: 'block', marginBottom: '3px', fontSize: '13px', color: 'var(--text-dark)' }}>
-            {comment.userName || 'Người dùng ẩn'}
-          </strong>
-          <span style={{ color: '#374151', lineHeight: '1.55' }}>{comment.content}</span>
-        </div>
-
-        {/* Action row */}
-        <div style={{ display: 'flex', gap: '12px', marginTop: '5px', paddingLeft: '4px', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {formatDate(comment.createdAt, false)}
-          </span>
-          {depth === 0 && (
-            <button
-              onClick={() => setReplying(r => !r)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '12px', fontWeight: '700', color: replying ? 'var(--primary)' : 'var(--text-muted)',
-                padding: '0', letterSpacing: '0.01em'
-              }}
-            >
-              {replying ? 'Hủy' : 'Phản hồi'}
-            </button>
-          )}
-          {depth === 0 && replies.length > 0 && (
-            <button
-              onClick={handleToggleReplies}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '12px', fontWeight: '700',
-                color: showReplies ? 'var(--accent)' : 'var(--text-muted)',
-                padding: '0', display: 'flex', alignItems: 'center', gap: '4px'
-              }}
-            >
-              <svg
-                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: showReplies ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.25s' }}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-              {showReplies ? 'Ẩn' : 'Xem'} {replies.length} phản hồi
-            </button>
-          )}
-        </div>
-
-        {/* Reply input */}
-        {replying && depth === 0 && (
-          <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <img
-              src={currentUser?.avatar || `https://i.pravatar.cc/150?u=${currentUser?.id}`}
-              alt=""
-              style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, border: '2px solid var(--border)' }}
-            />
-            <input
-              autoFocus
-              type="text"
-              placeholder={`Phản hồi ${comment.userName}...`}
-              value={replyText}
-              onChange={e => setReplyText(e.target.value)}
-              style={{
-                flex: 1, padding: '7px 12px', borderRadius: '20px',
-                border: '2px solid var(--border)', fontSize: '13px',
-                outline: 'none', background: 'white'
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!replyText.trim()}
-              className="btn btn--primary"
-              style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '20px' }}
-            >
-              Gửi
-            </button>
-          </form>
-        )}
-
-        {/* Nested replies (level 2) — collapsible */}
-        {depth === 0 && replies.length > 0 && showReplies && (
-          <div
-            ref={repliesRef}
-            style={{ marginTop: '8px', paddingLeft: '12px', borderLeft: '2px solid rgba(232,153,81,0.3)', display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}
-          >
-            {replies.map(reply => (
-              <CommentItem key={reply.id} comment={reply} reviewId={reviewId} depth={1} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <LoginPromptModal
-        open={loginPrompt}
-        onClose={() => setLoginPrompt(false)}
-        message="Bạn cần đăng nhập để phản hồi bình luận."
-      />
-    </div>
-  );
-}
+// CommentItem is now imported from './CommentItem.jsx'
 
 // ── Aspect Badge ─────────────────────────────────────────────────────────────
 function AspectBadge({ aspectKey, value }) {
@@ -377,12 +215,51 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
   const { toggleLikeReview, addCommentToReview } = useReviews();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const parsedImages = parseImageUrls(review.image_urls);
+  const parsedImages = review.images 
+    ? (Array.isArray(review.images) ? review.images.map(img => typeof img === 'string' ? img : img.url) : [])
+    : parseImageUrls(review.image_urls);
   const totalCount = parsedImages.length;
   const displayImages = parsedImages.slice(0, 4);
 
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [commentImage, setCommentImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const commentFileRef = useRef(null);
+
+  const handleCommentImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingImage(true);
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch('/api/v1/media/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setCommentImage(data.url);
+      toast('Tải ảnh bình luận thành công!', 'success');
+    } catch (err) {
+      console.error(err);
+      toast('Tải ảnh thất bại.', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const [showAllAspects, setShowAllAspects] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
@@ -515,16 +392,18 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
     const res = await addCommentToReview(review.id, {
       userName: currentUser.name || currentUser.full_name,
       userAvatar: currentUser.avatar,
-      content: commentText.trim()
+      content: commentText.trim(),
+      imageUrl: commentImage
     });
     if (res.ok) {
       setCommentText('');
+      setCommentImage(null);
       toast('Đã đăng bình luận!', 'success');
       if (res.review && onReviewUpdate) onReviewUpdate(res.review);
     } else {
       toast(res.error, 'error');
     }
-  }, [currentUser, commentText, review.id, addCommentToReview, onReviewUpdate]);
+  }, [currentUser, commentText, commentImage, review.id, addCommentToReview, onReviewUpdate]);
 
   // Level-1 comments (no parent)
   const topComments = (review.comments || []).filter(c => !c.parentId && !c.parent_id);
@@ -772,6 +651,24 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
             )}
           </div>
 
+          {/* Attached Image Preview */}
+          {commentImage && (
+            <div style={{ position: 'relative', display: 'inline-block', margin: '0 0 10px 42px' }}>
+              <img 
+                src={commentImage} 
+                alt="Preview" 
+                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setCommentImage(null)}
+                style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--danger)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'grid', placeItems: 'center', fontWeight: 'bold' }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* New Comment Input */}
           <form onSubmit={handleSendComment} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <img
@@ -779,7 +676,7 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
               alt=""
               style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, border: '2px solid var(--border)' }}
             />
-            <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
                 type="text"
                 placeholder={currentUser ? 'Viết bình luận...' : 'Đăng nhập để bình luận...'}
@@ -795,9 +692,29 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
                 onFocus={e => e.target.style.borderColor = 'var(--primary)'}
                 onBlur={e => e.target.style.borderColor = 'var(--border)'}
               />
+              {currentUser && (
+                <>
+                  <button
+                    type="button"
+                    disabled={uploadingImage}
+                    onClick={() => commentFileRef.current?.click()}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', padding: '4px 8px', display: 'grid', placeItems: 'center' }}
+                    title="Đính kèm hình ảnh"
+                  >
+                    {uploadingImage ? '⏳' : '📷'}
+                  </button>
+                  <input
+                    type="file"
+                    ref={commentFileRef}
+                    accept="image/*"
+                    onChange={handleCommentImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                </>
+              )}
               <button
                 type="submit"
-                disabled={!currentUser || !commentText.trim()}
+                disabled={!currentUser || (!commentText.trim() && !commentImage)}
                 className="btn btn--primary"
                 style={{ padding: '8px 18px', fontSize: '13px', borderRadius: '20px', flexShrink: 0 }}
               >

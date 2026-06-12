@@ -76,7 +76,7 @@ export function RestaurantsProvider({ children }) {
       cuisine_tags,
       menu: data.description?.trim() || 'Chưa có mô tả chi tiết từ cộng đồng.',
       serves_dishes,
-      city: 'ha-noi',
+      city: 'Hà Nội',
       is_verified: false
     };
 
@@ -149,7 +149,7 @@ export function RestaurantsProvider({ children }) {
       cuisine_tags,
       menu: data.menu || data.description,
       serves_dishes,
-      city: data.city || 'ha-noi'
+      city: data.city || 'Hà Nội'
     };
 
     try {
