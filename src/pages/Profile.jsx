@@ -8,6 +8,7 @@ import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import PreferenceSelectorModal from '../components/PreferenceSelectorModal.jsx';
 import { toast } from '../components/Toast.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
 
 function ProfileReviewItem({ review }) {
   const { getRestaurant } = useRestaurants();
@@ -249,7 +250,7 @@ export default function Profile() {
             id: userData.id,
             name: userData.full_name || userData.email,
             email: userData.email,
-            avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
+            avatar: userData.avatar || '',
             bio: userData.bio || 'Thành viên của Foodie Homie.',
             total_points: userData.total_points || 0,
             follower_count: userData.follower_count || 0,
@@ -273,7 +274,7 @@ export default function Profile() {
             id: userData.id,
             name: userData.full_name || userData.email,
             email: userData.email,
-            avatar: userData.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(userData.email)}`,
+            avatar: userData.avatar || '',
             bio: userData.bio || 'Thành viên của Foodie Homie.',
             total_points: userData.total_points || 0,
             follower_count: userData.follower_count || 0,
@@ -505,10 +506,12 @@ export default function Profile() {
             onClick={editing ? () => fileInputRef.current?.click() : undefined}
             title={editing ? "Nhấp để tải ảnh đại diện mới" : undefined}
           >
-            <img 
+            <UserAvatar 
               src={editing ? form.avatar : profileUser.avatar} 
-              alt={profileUser.name} 
+              name={profileUser.name} 
               className="profile__avatar" 
+              size={120}
+              style={{ borderRadius: 'var(--radius-md)' }}
             />
             {editing && (
               <div className="profile__avatar-overlay">
@@ -821,10 +824,11 @@ export default function Profile() {
                   {modalUsers.map(u => (
                     <div key={u.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <img 
-                          src={u.avatar || `https://i.pravatar.cc/150?u=${encodeURIComponent(u.email)}`} 
-                          alt={u.full_name || u.email} 
-                          style={{ width: '40px', height: '40px', borderRadius: '2px', border: '1px solid var(--border)', objectFit: 'cover' }}
+                        <UserAvatar 
+                          src={u.avatar} 
+                          name={u.full_name || u.email} 
+                          size={40}
+                          style={{ borderRadius: '2px', border: '1px solid var(--border)' }}
                         />
                         <div>
                           <strong style={{ fontSize: '13.5px', color: 'var(--text-dark)' }}>{u.full_name || u.email}</strong>

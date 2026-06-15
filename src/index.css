@@ -2121,6 +2121,29 @@ img {
   display: flex;
   flex-direction: column;
   padding: 0;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.restaurant-review-pair__left:hover {
+  background: var(--bg-light);
+  border-color: var(--primary);
+}
+
+.restaurant-review-pair__left img {
+  transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.restaurant-review-pair__left:hover img {
+  transform: scale(1.04);
+}
+
+.restaurant-review-pair__left:hover .restaurant-detail-btn {
+  background: rgba(232, 153, 81, 0.08);
 }
 
 .restaurant-review-pair__right {

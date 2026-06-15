@@ -11,6 +11,22 @@ const CATEGORIES = [
   { value: 'cafe', label: 'Cafe' }
 ];
 
+const VIETNAM_PROVINCES = [
+  "An Giang", "Bà Rịa - Vũng Tàu", "Bạc Liêu", "Bắc Giang", "Bắc Kạn",
+  "Bắc Ninh", "Bến Tre", "Bình Dương", "Bình Định", "Bình Phước",
+  "Bình Thuận", "Cà Mau", "Cao Bằng", "Cần Thơ", "Đà Nẵng",
+  "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp",
+  "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội", "Hà Tĩnh",
+  "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hồ Chí Minh",
+  "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu",
+  "Lạng Sơn", "Lào Cai", "Lâm Đồng", "Long An", "Nam Định",
+  "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên",
+  "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị",
+  "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên",
+  "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "Trà Vinh", "Tuyên Quang",
+  "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
+];
+
 export default function SuggestRestaurantModal({ onClose }) {
   const containerRef = useRef(null);
   const overlayRef = useRef(null);
@@ -23,6 +39,7 @@ export default function SuggestRestaurantModal({ onClose }) {
     name: '',
     category: CATEGORIES[0].value,
     priceRange: '$$',
+    city: localStorage.getItem('ff_user_city') || 'Hà Nội',
     address: '',
     phone: '',
     hours: '08:00 - 22:00',
@@ -138,15 +155,16 @@ export default function SuggestRestaurantModal({ onClose }) {
         inset: 0,
         zIndex: 9999,
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '20px'
+        padding: '100px 20px 40px 20px',
+        overflowY: 'auto'
       }}
     >
       <div
         ref={overlayRef}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           inset: 0,
           backgroundColor: 'rgba(42, 29, 25, 0.45)', // Warm coffee overlay
           backdropFilter: 'blur(4px)',
@@ -160,8 +178,6 @@ export default function SuggestRestaurantModal({ onClose }) {
         style={{
           width: '100%',
           maxWidth: '560px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
           padding: '30px',
           position: 'relative',
           borderRadius: '4px', // Geometric border radius
@@ -248,16 +264,35 @@ export default function SuggestRestaurantModal({ onClose }) {
             </label>
           </div>
 
-          <label className="form__field">
-            <span>Địa chỉ *</span>
-            <input
-              type="text"
-              placeholder="Ví dụ: 123 Nguyễn Thị Minh Khai, Quận 1, TP.HCM"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              required
-            />
-          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '16px' }}>
+            <label className="form__field">
+              <span>Tỉnh / Thành phố *</span>
+              <select
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                className="select"
+                style={{ width: '100%', borderRadius: '2px', border: '2px solid var(--border)', padding: '14px 18px', background: 'var(--bg-light)', color: 'var(--text-dark)' }}
+                required
+              >
+                {VIETNAM_PROVINCES.map((prov) => (
+                  <option key={prov} value={prov}>
+                    {prov}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="form__field">
+              <span>Địa chỉ chi tiết *</span>
+              <input
+                type="text"
+                placeholder="Ví dụ: 123 Nguyễn Thị Minh Khai, Quận 1"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                required
+              />
+            </label>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <label className="form__field">

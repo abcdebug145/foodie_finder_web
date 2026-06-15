@@ -20,7 +20,7 @@ export function RestaurantsProvider({ children }) {
           phone: r.phone || 'Chưa cập nhật',
           hours: r.hours || '08:00 - 22:00',
           rating: r.avg_rating || 0.0,
-          image: r.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+          image: r.img_url || r.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
           tags: r.cuisine_tags ? r.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
           description: r.menu || 'Chưa có thực đơn chi tiết.',
           specialties: r.serves_dishes ? r.serves_dishes.split(';').map(s => s.trim()).filter(Boolean) : (r.cuisine_style ? r.cuisine_style.split(';').map(s => s.trim()).filter(Boolean) : ['Món ăn gia đình']),
@@ -63,6 +63,8 @@ export function RestaurantsProvider({ children }) {
       ? data.specialties.split(',').map((s) => s.trim()).filter(Boolean).join(';')
       : 'Món ăn gia đình';
 
+    if (!data.city || !data.city.trim()) return { ok: false, error: 'Vui lòng chọn tỉnh / thành phố.' };
+
     const payload = {
       id: newId,
       name: data.name.trim(),
@@ -72,11 +74,11 @@ export function RestaurantsProvider({ children }) {
       phone: data.phone?.trim() || 'Chưa cập nhật',
       hours: data.hours?.trim() || '08:00 - 22:00',
       avg_rating: 5.0,
-      restaurant_url: data.image?.trim() || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+      img_url: data.image?.trim() || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
       cuisine_tags,
       menu: data.description?.trim() || 'Chưa có mô tả chi tiết từ cộng đồng.',
       serves_dishes,
-      city: 'Hà Nội',
+      city: data.city.trim(),
       is_verified: false
     };
 
@@ -98,7 +100,7 @@ export function RestaurantsProvider({ children }) {
           phone: newRest.phone || 'Chưa cập nhật',
           hours: newRest.hours || '08:00 - 22:00',
           rating: newRest.avg_rating || 0.0,
-          image: newRest.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+          image: newRest.img_url || newRest.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
           tags: newRest.cuisine_tags ? newRest.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
           description: newRest.menu || 'Chưa có thực đơn chi tiết.',
           specialties: newRest.serves_dishes ? newRest.serves_dishes.split(';').map(s => s.trim()).filter(Boolean) : (newRest.cuisine_style ? newRest.cuisine_style.split(';').map(s => s.trim()).filter(Boolean) : ['Món ăn gia đình']),
@@ -173,7 +175,7 @@ export function RestaurantsProvider({ children }) {
           phone: updatedRest.phone || 'Chưa cập nhật',
           hours: updatedRest.hours || '08:00 - 22:00',
           rating: updatedRest.avg_rating || 0.0,
-          image: updatedRest.img_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+          image: updatedRest.img_url || updatedRest.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
           tags: updatedRest.cuisine_tags ? updatedRest.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
           description: updatedRest.menu || 'Chưa có thực đơn chi tiết.',
           specialties: updatedRest.serves_dishes ? updatedRest.serves_dishes.split(';').map(s => s.trim()).filter(Boolean) : ['Món ăn gia đình'],

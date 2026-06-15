@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { toast } from '../components/Toast.jsx';
 import { formatCategory } from '../utils/category.js';
+import UserAvatar from '../components/UserAvatar.jsx';
 
 const CATEGORIES = [
   { value: 'nha-hang', label: 'Nhà hàng' },
@@ -763,10 +764,11 @@ export default function AdminDashboard() {
                       {users.map(u => (
                         <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '16px 8px', verticalAlign: 'middle', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <img
-                              src={u.avatar || `https://i.pravatar.cc/150?u=${u.id}`}
-                              alt=""
-                              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}
+                            <UserAvatar
+                              src={u.avatar}
+                              name={u.full_name || u.email}
+                              size={32}
+                              style={{ border: '1px solid var(--border)' }}
                             />
                             <strong>{u.full_name || 'Chưa cập nhật'}</strong>
                           </td>

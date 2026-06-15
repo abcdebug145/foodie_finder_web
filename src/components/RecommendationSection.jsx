@@ -273,7 +273,7 @@ export default function RecommendationSection({ city }) {
             category: r.category,
             address: r.address,
             avg_rating: r.avg_rating || 0,
-            img_url: r.restaurant_url || r.img_url,
+            img_url: r.img_url || r.restaurant_url,
             cuisine_tags: r.cuisine_tags,
             hours: r.hours,
             district: r.district,

@@ -10,6 +10,7 @@ import ReportModal from './ReportModal.jsx';
 import ReviewImageLightbox from './ReviewImageLightbox.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
 import CommentItem from './CommentItem.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
 
 // Parser for review.image_urls supporting semicolon separated, array, JSON formats
@@ -205,10 +206,11 @@ export default function ReviewPostCard({ review }) {
       {/* 1. Header: Thông tin người viết, số sao (trái) và tên quán ăn (phải) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img
-            src={review.userAvatar || 'https://i.pravatar.cc/150'}
-            alt={review.userName}
-            style={{ width: '42px', height: '42px', borderRadius: '2px', objectFit: 'cover' }}
+          <UserAvatar
+            src={review.userAvatar}
+            name={review.userName}
+            size={42}
+            style={{ borderRadius: '2px' }}
           />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -495,10 +497,11 @@ export default function ReviewPostCard({ review }) {
 
             {/* Hộp viết bình luận mới */}
             <form onSubmit={handleSendComment} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <img
-                src={currentUser?.avatar || `https://i.pravatar.cc/150?u=${currentUser?.id || 'guest'}`}
-                alt=""
-                style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, border: '2px solid var(--border)' }}
+              <UserAvatar
+                src={currentUser?.avatar}
+                name={currentUser?.name || currentUser?.full_name}
+                size={32}
+                style={{ border: '2px solid var(--border)' }}
               />
               <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input

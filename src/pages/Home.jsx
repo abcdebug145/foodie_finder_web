@@ -6,6 +6,7 @@ import RestaurantReviewPair from '../components/RestaurantReviewPair.jsx';
 import RestaurantSkeleton from '../components/RestaurantSkeleton.jsx';
 import SuggestRestaurantModal from '../components/SuggestRestaurantModal.jsx';
 import RecommendationSection from '../components/RecommendationSection.jsx';
+import WriteReviewModal from '../components/WriteReviewModal.jsx';
 import { toast } from '../components/Toast.jsx';
 
 const HERO_IMAGES = [
@@ -45,6 +46,7 @@ export default function Home() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [pinnedAddress, setPinnedAddress] = useState(() => localStorage.getItem('ff_user_address') || null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3]);
   const isAnimating = useRef(false);
 
@@ -104,7 +106,7 @@ export default function Home() {
         phone: r.phone || 'Chưa cập nhật',
         hours: r.hours || '08:00 - 22:00',
         rating: r.avg_rating || 0.0,
-        image: r.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+        image: r.img_url || r.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
         tags: r.cuisine_tags ? r.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
         description: r.menu || 'Chưa có thực đơn chi tiết.',
         is_verified: r.is_verified
@@ -598,6 +600,28 @@ export default function Home() {
               </svg>
               Đề xuất quán
             </button>
+            <button
+              onClick={() => setIsReviewModalOpen(true)}
+              className="btn btn--primary"
+              style={{
+                padding: '8px 16px',
+                fontSize: '12px',
+                borderRadius: 'var(--radius-md)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'var(--accent)',
+                borderColor: 'var(--accent)',
+                color: 'var(--text-dark)',
+                boxShadow: '0 4px 12px rgba(236, 182, 95, 0.2)'
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+              Viết review
+            </button>
           </div>
         </div>
 
@@ -652,6 +676,17 @@ export default function Home() {
 
       {/* Modal đề xuất quán ăn mới */}
       {isModalOpen && <SuggestRestaurantModal onClose={() => setIsModalOpen(false)} />}
+      
+      {/* Modal viết review mới */}
+      {isReviewModalOpen && (
+        <WriteReviewModal 
+          onClose={() => setIsReviewModalOpen(false)} 
+          onSuggestNew={() => {
+            setIsReviewModalOpen(false);
+            setIsModalOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 }

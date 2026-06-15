@@ -16,11 +16,12 @@ const ASPECT_LABELS = {
   restaurant:   { label: 'Tổng thể',  icon: '🏠' },
 };
 
-// ── Markdown Parser Helpers ──────────────────────────────────────────────────
 function renderMarkdown(text) {
   if (!text) return null;
 
-  const lines = text.split('\n');
+  // Replace HTML space entities with standard unicode space
+  const cleanedText = text.replace(/&nbsp;/g, '\u00A0');
+  const lines = cleanedText.split('\n');
   const elements = [];
   let currentList = [];
   let isNumberedList = false;
@@ -39,7 +40,7 @@ function renderMarkdown(text) {
         >
           {currentList.map((item, idx) => (
             <li key={idx} style={{ marginBottom: '4px', lineHeight: '1.5' }}>
-              {renderBold(item)}
+              {parseInlineMarkdown(item)}
             </li>
           ))}
         </ListTag>
@@ -52,12 +53,79 @@ function renderMarkdown(text) {
     const line = lines[i];
     const trimmed = line.trim();
 
+    // Match horizontal rule (--- or *** or ___)
+    const hrMatch = line.match(/^(\s*)-{3,}\s*$/);
+    // Match headers: h1 (#), h2 (##), h3 (###)
+    const headerMatch = line.match(/^(#{1,3})\s+(.*)$/);
+    // Match blockquote
+    const quoteMatch = line.match(/^>\s*(.*)$/);
     // Match bullet lists
     const bulletMatch = line.match(/^(\s*)[-*+]\s+(.*)$/);
     // Match numbered lists (1. item)
     const numberMatch = line.match(/^(\s*)\d+\.\s+(.*)$/);
 
-    if (bulletMatch) {
+    if (hrMatch) {
+      flushList();
+      elements.push(
+        <hr 
+          key={`hr-${i}`} 
+          style={{ 
+            border: 'none', 
+            borderTop: '1px solid var(--border)', 
+            margin: '12px 0',
+            opacity: 0.6
+          }} 
+        />
+      );
+    } else if (headerMatch) {
+      flushList();
+      const level = headerMatch[1].length;
+      const content = headerMatch[2];
+      
+      const headerStyle = {
+        fontWeight: '800',
+        color: 'var(--text-dark)',
+        margin: '10px 0 6px 0',
+        lineHeight: '1.3'
+      };
+
+      if (level === 1) {
+        elements.push(
+          <h1 key={`h-${i}`} style={{ ...headerStyle, fontSize: '18px' }}>
+            {parseInlineMarkdown(content)}
+          </h1>
+        );
+      } else if (level === 2) {
+        elements.push(
+          <h2 key={`h-${i}`} style={{ ...headerStyle, fontSize: '15.5px' }}>
+            {parseInlineMarkdown(content)}
+          </h2>
+        );
+      } else {
+        elements.push(
+          <h3 key={`h-${i}`} style={{ ...headerStyle, fontSize: '14px' }}>
+            {parseInlineMarkdown(content)}
+          </h3>
+        );
+      }
+    } else if (quoteMatch) {
+      flushList();
+      elements.push(
+        <blockquote 
+          key={`quote-${i}`} 
+          style={{ 
+            borderLeft: '3px solid var(--primary)', 
+            paddingLeft: '12px', 
+            margin: '8px 0', 
+            color: 'var(--text-muted)',
+            fontStyle: 'italic',
+            lineHeight: '1.5'
+          }}
+        >
+          {parseInlineMarkdown(quoteMatch[1])}
+        </blockquote>
+      );
+    } else if (bulletMatch) {
       if (currentList.length > 0 && isNumberedList) {
         flushList();
       }
@@ -76,7 +144,7 @@ function renderMarkdown(text) {
       } else {
         elements.push(
           <div key={`p-${i}`} style={{ margin: '3px 0', lineHeight: '1.5' }}>
-            {renderBold(line)}
+            {parseInlineMarkdown(line)}
           </div>
         );
       }
@@ -87,15 +155,60 @@ function renderMarkdown(text) {
   return elements;
 }
 
-function renderBold(text) {
+function parseInlineMarkdown(text) {
   if (!text) return '';
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx} style={{ fontWeight: '800' }}>{part.slice(2, -2)}</strong>;
+
+  // Match markdown links [text](url) and bold **text**
+  const regex = /(\[(.*?)\]\((.*?)\))|(\*\*(.*?)\*\*)/g;
+  const elements = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const matchIndex = match.index;
+    
+    // Add text before the match
+    if (matchIndex > lastIndex) {
+      elements.push(text.substring(lastIndex, matchIndex));
     }
-    return part;
-  });
+
+    if (match[1]) {
+      // Markdown link
+      const linkText = match[2];
+      const linkUrl = match[3];
+      elements.push(
+        <a 
+          key={matchIndex} 
+          href={linkUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{ 
+            color: 'var(--primary)', 
+            textDecoration: 'underline', 
+            fontWeight: '700' 
+          }}
+        >
+          {linkText}
+        </a>
+      );
+    } else if (match[4]) {
+      // Bold text
+      const boldText = match[5];
+      elements.push(
+        <strong key={matchIndex} style={{ fontWeight: '800' }}>
+          {boldText}
+        </strong>
+      );
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.substring(lastIndex));
+  }
+
+  return elements;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -171,6 +284,8 @@ function RestaurantCard({ restaurant }) {
       overflow: 'hidden',
       transition: 'transform 0.2s, box-shadow 0.2s',
       cursor: 'pointer',
+      display: 'flex',
+      flexDirection: 'column',
     }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = 'var(--shadow)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
@@ -237,85 +352,87 @@ function RestaurantCard({ restaurant }) {
       </div>
 
       {/* Body */}
-      <div style={{ padding: '10px 14px' }}>
-        {/* Address */}
-        <div style={{ display: 'flex', gap: 5, marginBottom: 8, alignItems: 'flex-start' }}>
-          <span style={{ fontSize: 10, marginTop: 1 }}>📍</span>
-          <span style={{ fontSize: 10.5, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            {restaurant.address}
-          </span>
-        </div>
-
-        {/* Distance if available */}
-        {restaurant.distance !== undefined && restaurant.distance !== null && (
-          <div style={{ display: 'flex', gap: 5, marginBottom: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 10 }}>🚗</span>
-            <span style={{ fontSize: 11, fontWeight: '700', color: 'var(--primary)' }}>
-              Cách bồ {restaurant.distance < 1 
-                ? `${Math.round(restaurant.distance * 1000)}m` 
-                : `${restaurant.distance.toFixed(1)} km`}
+      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ flex: 1 }}>
+          {/* Address */}
+          <div style={{ display: 'flex', gap: 5, marginBottom: 8, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 10, marginTop: 1 }}>📍</span>
+            <span style={{ fontSize: 10.5, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              {restaurant.address}
             </span>
           </div>
-        )}
 
-        {/* Aspects */}
-        {aspectEntries.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            {aspectEntries.map(([key, asp]) => (
-              <AspectBar
-                key={key}
-                icon={ASPECT_LABELS[key]?.icon || '•'}
-                label={ASPECT_LABELS[key]?.label || key}
-                pos={asp.pos}
-                neg={asp.neg}
-                total={asp.total}
-              />
-            ))}
-          </div>
-        )}
+          {/* Distance if available */}
+          {restaurant.distance !== undefined && restaurant.distance !== null && (
+            <div style={{ display: 'flex', gap: 5, marginBottom: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 10 }}>🚗</span>
+              <span style={{ fontSize: 11, fontWeight: '700', color: 'var(--primary)' }}>
+                Cách bồ {restaurant.distance < 1 
+                  ? `${Math.round(restaurant.distance * 1000)}m` 
+                  : `${restaurant.distance.toFixed(1)} km`}
+              </span>
+            </div>
+          )}
 
-        {/* Expand reviews */}
-        {restaurant.top_reviews?.length > 0 && (
-          <>
-            <button
-              onClick={() => setExpanded(p => !p)}
-              style={{
-                border: 'none', background: 'rgba(42, 29, 25, 0.05)',
-                color: 'var(--text-muted)', cursor: 'pointer',
-                fontSize: 10, fontWeight: 700, padding: '4px 8px',
-                borderRadius: 'var(--radius-md)', marginBottom: expanded ? 8 : 0,
-                letterSpacing: '0.4px', textTransform: 'uppercase',
-                transition: 'background 0.2s',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.1)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.05)'}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '10px', height: '10px', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-              {expanded ? 'Ẩn review' : 'Xem review'}
-            </button>
-            {expanded && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {restaurant.top_reviews.slice(0, 2).map((rv, i) => (
-                  <div key={i} style={{
-                    fontSize: 10.5, color: 'var(--text-muted)',
-                    fontStyle: 'italic', lineHeight: 1.5,
-                    padding: '6px 8px',
-                    background: 'rgba(42, 29, 25, 0.03)',
-                    borderRadius: 'var(--radius-md)',
-                    borderLeft: '2px solid var(--primary)',
-                  }}>
-                    "{rv.length > 120 ? rv.slice(0, 120) + '...' : rv}"
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+          {/* Aspects */}
+          {aspectEntries.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              {aspectEntries.map(([key, asp]) => (
+                <AspectBar
+                  key={key}
+                  icon={ASPECT_LABELS[key]?.icon || '•'}
+                  label={ASPECT_LABELS[key]?.label || key}
+                  pos={asp.pos}
+                  neg={asp.neg}
+                  total={asp.total}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Expand reviews */}
+          {restaurant.top_reviews?.length > 0 && (
+            <>
+              <button
+                onClick={() => setExpanded(p => !p)}
+                style={{
+                  border: 'none', background: 'rgba(42, 29, 25, 0.05)',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                  fontSize: 10, fontWeight: 700, padding: '4px 8px',
+                  borderRadius: 'var(--radius-md)', marginBottom: expanded ? 8 : 0,
+                  letterSpacing: '0.4px', textTransform: 'uppercase',
+                  transition: 'background 0.2s',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.1)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(42, 29, 25, 0.05)'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '10px', height: '10px', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+                {expanded ? 'Ẩn review' : 'Xem review'}
+              </button>
+              {expanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {restaurant.top_reviews.slice(0, 2).map((rv, i) => (
+                    <div key={i} style={{
+                      fontSize: 10.5, color: 'var(--text-muted)',
+                      fontStyle: 'italic', lineHeight: 1.5,
+                      padding: '6px 8px',
+                      background: 'rgba(42, 29, 25, 0.03)',
+                      borderRadius: 'var(--radius-md)',
+                      borderLeft: '2px solid var(--primary)',
+                    }}>
+                      "{rv.length > 120 ? rv.slice(0, 120) + '...' : rv}"
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Detail link */}
         <Link
@@ -479,6 +596,18 @@ export default function ChatBot() {
     const activeLon = localStorage.getItem('ff_user_lon') ? parseFloat(localStorage.getItem('ff_user_lon')) : null;
     const activeAddress = localStorage.getItem('ff_user_address') || null;
 
+    const assistantMsgId = Date.now() + 1;
+    // Create an empty assistant message first
+    setMessages(prev => [
+      ...prev,
+      {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        restaurants: [],
+      }
+    ]);
+
     try {
       const res = await fetch('/api/v1/chat/', {
         method: 'POST',
@@ -496,26 +625,70 @@ export default function ChatBot() {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: data.answer,
-          restaurants: data.restaurants || [],
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep the incomplete line in buffer
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            if (parsed.type === 'restaurants') {
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMsgId 
+                  ? { ...m, restaurants: parsed.data }
+                  : m
+              ));
+            } else if (parsed.type === 'token') {
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMsgId 
+                  ? { ...m, content: m.content + parsed.data }
+                  : m
+              ));
+            } else if (parsed.type === 'error') {
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMsgId 
+                  ? { ...m, content: parsed.data }
+                  : m
+              ));
+            }
+          } catch (e) {
+            console.error('Error parsing SSE line:', e, trimmed);
+          }
         }
-      ]);
+      }
     } catch (err) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: 'Ủa, mình gặp lỗi kết nối rồi. Bạn thử lại sau nhé! 😅',
-          restaurants: [],
+      setMessages(prev => {
+        const hasMsg = prev.some(m => m.id === assistantMsgId);
+        if (hasMsg) {
+          return prev.map(m => 
+            m.id === assistantMsgId 
+              ? { ...m, content: 'Ủa, mình gặp lỗi kết nối rồi. Bạn thử lại sau nhé! 😅' }
+              : m
+          );
+        } else {
+          return [
+            ...prev,
+            {
+              id: assistantMsgId,
+              role: 'assistant',
+              content: 'Ủa, mình gặp lỗi kết nối rồi. Bạn thử lại sau nhé! 😅',
+              restaurants: [],
+            }
+          ];
         }
-      ]);
+      });
     } finally {
       setLoading(false);
     }
@@ -562,9 +735,9 @@ export default function ChatBot() {
             position: 'fixed',
             bottom: 90,
             right: 24,
-            width: 420,
+            width: 520,
             maxWidth: 'calc(100vw - 32px)',
-            height: 600,
+            height: 700,
             maxHeight: 'calc(100vh - 120px)',
             zIndex: 9999,
             display: 'flex',
@@ -767,7 +940,7 @@ export default function ChatBot() {
         title="Cuộn lên đầu trang"
         style={{
           position: 'fixed',
-          bottom: open ? 702 : 92,
+          bottom: open ? 802 : 92,
           right: 32,
           width: 40,
           height: 40,

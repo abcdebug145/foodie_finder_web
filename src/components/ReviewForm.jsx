@@ -3,8 +3,10 @@ import StarRating from './StarRating.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useReviews } from '../context/ReviewsContext.jsx';
 import { Link } from 'react-router-dom';
+import { toast } from './Toast.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
-export default function ReviewForm({ restaurantId }) {
+export default function ReviewForm({ restaurantId, onSubmitSuccess }) {
   const { currentUser } = useAuth();
   const { addReview } = useReviews();
   const [rating, setRating] = useState(0);
@@ -57,32 +59,50 @@ export default function ReviewForm({ restaurantId }) {
     );
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    const res = await addReview({ 
+
+    if (!content?.trim()) {
+      setError('Vui lòng nhập nội dung đánh giá.');
+      return;
+    }
+    if (!rating || rating < 1) {
+      setError('Vui lòng chọn số sao.');
+      return;
+    }
+
+    addReview({ 
       restaurantId, 
       user: currentUser, 
       rating, 
-      content,
+      content: content.trim(),
       imageUrls: reviewImage || null
+    }).then((res) => {
+      if (!res.ok) {
+        toast(`Đăng đánh giá thất bại: ${res.error}`, 'error');
+      } else {
+        toast('Cảm ơn bạn đã chia sẻ đánh giá!', 'success');
+      }
+    }).catch((err) => {
+      console.error(err);
+      toast('Lỗi khi đăng đánh giá.', 'error');
     });
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
+
     setRating(0);
     setContent('');
     setReviewImage('');
-    setSuccess('Cảm ơn bạn đã chia sẻ đánh giá!');
-    setTimeout(() => setSuccess(''), 2500);
+
+    if (onSubmitSuccess) {
+      onSubmitSuccess();
+    }
   };
 
   return (
     <form className="review-form" onSubmit={handleSubmit}>
       <div className="review-form__head">
-        <img src={currentUser.avatar} alt={currentUser.name} />
+        <UserAvatar src={currentUser.avatar} name={currentUser.name} size={40} />
         <div>
           <strong>{currentUser.name}</strong>
           <p>Đánh giá trải nghiệm của bạn</p>

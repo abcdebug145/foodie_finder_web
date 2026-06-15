@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useReviews } from '../context/ReviewsContext.jsx';
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from './Toast.jsx';
 import ReportModal from './ReportModal.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
 const formatDate = (dateStr, includeYear = true) => {
   if (!dateStr) return 'Mới đây';
@@ -36,9 +37,14 @@ export default function CommentItem({ comment, reviewId, depth = 0 }) {
   const [showReplies, setShowReplies] = useState(false);
   const [loginPrompt, setLoginPrompt] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [localReplies, setLocalReplies] = useState(comment.replies || []);
   const repliesRef = useRef(null);
 
-  const replies = comment.replies || [];
+  useEffect(() => {
+    setLocalReplies(comment.replies || []);
+  }, [comment.replies]);
+
+  const replies = localReplies || [];
 
   const handleToggleReplies = () => {
     setShowReplies(prev => !prev);
@@ -53,22 +59,45 @@ export default function CommentItem({ comment, reviewId, depth = 0 }) {
     }
   }, [showReplies]);
 
-  const handleSendReply = async (e) => {
+  const handleSendReply = (e) => {
     e.preventDefault();
     if (!currentUser) {
       setLoginPrompt(true);
       return;
     }
     if (!replyText.trim()) return;
-    const res = await addReplyToComment(reviewId, comment.id, replyText.trim());
-    if (res.ok) {
-      setReplyText('');
-      setReplying(false);
-      setShowReplies(true);
-      toast('Đã gửi phản hồi!', 'success');
-    } else {
-      toast(res.error, 'error');
-    }
+
+    const tempReply = {
+      id: `temp-${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name || currentUser.full_name || currentUser.email || 'Tôi',
+      userAvatar: currentUser.avatar,
+      content: replyText.trim(),
+      likeCount: 0,
+      createdAt: new Date().toISOString(),
+      replies: []
+    };
+
+    // Optimistic UI update
+    setLocalReplies(prev => [...prev, tempReply]);
+    setReplyText('');
+    setReplying(false);
+    setShowReplies(true);
+
+    // Call API in the background
+    addReplyToComment(reviewId, comment.id, tempReply.content).then(res => {
+      if (res.ok) {
+        toast('Đã gửi phản hồi!', 'success');
+      } else {
+        // Rollback optimistic reply on error
+        setLocalReplies(prev => prev.filter(r => r.id !== tempReply.id));
+        toast(res.error || 'Phản hồi thất bại.', 'error');
+      }
+    }).catch(err => {
+      console.error(err);
+      setLocalReplies(prev => prev.filter(r => r.id !== tempReply.id));
+      toast('Lỗi kết nối máy chủ.', 'error');
+    });
   };
 
   const handleLikeComment = async (e) => {
@@ -94,18 +123,11 @@ export default function CommentItem({ comment, reviewId, depth = 0 }) {
 
   return (
     <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-      <img
-        src={comment.userAvatar || `https://i.pravatar.cc/150?u=${comment.userId}`}
-        alt={comment.userName}
-        style={{
-          width: depth === 0 ? '32px' : '26px',
-          height: depth === 0 ? '32px' : '26px',
-          borderRadius: '50%',
-          objectFit: 'cover',
-          flexShrink: 0,
-          marginTop: '2px',
-          border: '2px solid var(--border)'
-        }}
+      <UserAvatar
+        src={comment.userAvatar}
+        name={comment.userName}
+        size={depth === 0 ? 32 : 26}
+        style={{ marginTop: '2px', border: '2px solid var(--border)' }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -211,10 +233,11 @@ export default function CommentItem({ comment, reviewId, depth = 0 }) {
         {/* Reply input */}
         {replying && depth === 0 && (
           <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <img
-              src={currentUser?.avatar || `https://i.pravatar.cc/150?u=${currentUser?.id}`}
-              alt=""
-              style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, border: '2px solid var(--border)' }}
+            <UserAvatar
+              src={currentUser?.avatar}
+              name={currentUser?.name || currentUser?.full_name}
+              size={26}
+              style={{ border: '2px solid var(--border)' }}
             />
             <input
               autoFocus

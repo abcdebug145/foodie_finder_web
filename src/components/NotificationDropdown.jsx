@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationsContext.jsx';
 import { useEffect, useRef } from 'react';
+import UserAvatar from './UserAvatar.jsx';
 
 export default function NotificationDropdown({ onClose }) {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
@@ -198,14 +199,11 @@ export default function NotificationDropdown({ onClose }) {
 
               {/* Sender Avatar */}
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <img
-                  src={notif.sender?.avatar || 'https://i.pravatar.cc/150'}
-                  alt="Sender"
+                <UserAvatar
+                  src={notif.sender?.avatar}
+                  name={notif.sender?.full_name || notif.sender?.email || 'Người dùng'}
+                  size={38}
                   style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
                     border: '1px solid rgba(42, 29, 25, 0.08)',
                   }}
                 />

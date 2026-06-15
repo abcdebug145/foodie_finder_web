@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -10,6 +11,8 @@ import ReportModal from './ReportModal.jsx';
 import ReviewImageLightbox from './ReviewImageLightbox.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
 import CommentItem from './CommentItem.jsx';
+import StarRating from './StarRating.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
 // ── Aspect label map ────────────────────────────────────────────────────────
 const ASPECT_LABELS = {
@@ -212,9 +215,15 @@ const parseImageUrls = (imageUrls) => {
 
 // ── Main ReviewCard ───────────────────────────────────────────────────────────
 export default function ReviewCard({ review, showRestaurantLink = false, onReviewUpdate }) {
-  const { toggleLikeReview, addCommentToReview } = useReviews();
+  const { toggleLikeReview, addCommentToReview, updateReview, deleteReview } = useReviews();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isMenuHovered, setIsMenuHovered] = useState(false);
+  const [editRating, setEditRating] = useState(review.rating);
+  const [editContent, setEditContent] = useState(review.text || review.content);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const parsedImages = review.images 
     ? (Array.isArray(review.images) ? review.images.map(img => typeof img === 'string' ? img : img.url) : [])
     : parseImageUrls(review.image_urls);
@@ -222,6 +231,12 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
   const displayImages = parsedImages.slice(0, 4);
 
   const [showComments, setShowComments] = useState(false);
+  const [localComments, setLocalComments] = useState(review.comments || []);
+
+  useEffect(() => {
+    setLocalComments(review.comments || []);
+  }, [review.comments]);
+
   const [commentText, setCommentText] = useState('');
   const [commentImage, setCommentImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -325,7 +340,7 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
     ? (Array.isArray(review.likes) ? review.likes.includes(currentUser.id) : false)
     : false;
   const likesCount = review.like_count ?? review.likes?.length ?? 0;
-  const commentsCount = review.comment_count ?? review.comments?.length ?? 0;
+  const commentsCount = localComments.length;
 
   const starsCount = Math.max(0, Math.min(5,
     review.rating > 5 ? Math.round(review.rating / 2) : Math.round(review.rating)
@@ -372,6 +387,42 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
     setShowReportModal(true);
   }, [currentUser]);
 
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteReview = async () => {
+    setShowDeleteConfirm(false);
+    const res = await deleteReview(review.id);
+    if (res.ok) {
+      toast("Đã xóa đánh giá thành công!", "success");
+    } else {
+      toast(res.error || "Lỗi khi xóa đánh giá.", "error");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editContent.trim()) {
+      toast("Vui lòng nhập nội dung đánh giá.", "error");
+      return;
+    }
+    if (editRating < 1) {
+      toast("Vui lòng chọn số sao.", "error");
+      return;
+    }
+
+    const res = await updateReview(review.id, { rating: editRating, content: editContent.trim() });
+    if (res.ok) {
+      toast("Cập nhật đánh giá thành công!", "success");
+      setIsEditing(false);
+      if (res.review && onReviewUpdate) {
+        onReviewUpdate(res.review);
+      }
+    } else {
+      toast(res.error || "Lỗi khi cập nhật đánh giá.", "error");
+    }
+  };
+
   useGSAP(() => {
     if (showComments && commentsWrapperRef.current) {
       gsap.fromTo(
@@ -382,31 +433,116 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
     }
   }, [showComments]);
 
-  const handleSendComment = useCallback(async (e) => {
+  const handleSendComment = useCallback((e) => {
     e.preventDefault();
     if (!currentUser) {
       setLoginPrompt(true);
       return;
     }
     if (!commentText.trim()) return;
-    const res = await addCommentToReview(review.id, {
-      userName: currentUser.name || currentUser.full_name,
+
+    const tempComment = {
+      id: `temp-${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name || currentUser.full_name || currentUser.email || 'Tôi',
       userAvatar: currentUser.avatar,
       content: commentText.trim(),
-      imageUrl: commentImage
+      imageUrl: commentImage || null,
+      likeCount: 0,
+      createdAt: new Date().toISOString(),
+      replies: []
+    };
+
+    // Optimistic UI update
+    setLocalComments(prev => [...prev, tempComment]);
+    setCommentText('');
+    setCommentImage(null);
+
+    // Call API in the background
+    addCommentToReview(review.id, {
+      userName: currentUser.name || currentUser.full_name,
+      userAvatar: currentUser.avatar,
+      content: tempComment.content,
+      imageUrl: tempComment.imageUrl
+    }).then(res => {
+      if (res.ok) {
+        toast('Đã đăng bình luận!', 'success');
+        if (res.review && onReviewUpdate) onReviewUpdate(res.review);
+      } else {
+        // Rollback optimistic comment on error
+        setLocalComments(prev => prev.filter(c => c.id !== tempComment.id));
+        toast(res.error || 'Bình luận thất bại.', 'error');
+      }
+    }).catch(err => {
+      console.error(err);
+      setLocalComments(prev => prev.filter(c => c.id !== tempComment.id));
+      toast('Lỗi kết nối máy chủ.', 'error');
     });
-    if (res.ok) {
-      setCommentText('');
-      setCommentImage(null);
-      toast('Đã đăng bình luận!', 'success');
-      if (res.review && onReviewUpdate) onReviewUpdate(res.review);
-    } else {
-      toast(res.error, 'error');
-    }
   }, [currentUser, commentText, commentImage, review.id, addCommentToReview, onReviewUpdate]);
 
   // Level-1 comments (no parent)
-  const topComments = (review.comments || []).filter(c => !c.parentId && !c.parent_id);
+  const topComments = (localComments || []).filter(c => !c.parentId && !c.parent_id);
+
+  if (isEditing) {
+    return (
+      <article ref={cardRef} style={{ marginBottom: '20px', padding: '22px 24px', background: 'var(--surface, #fff)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+        <h5 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: '800', color: 'var(--text-dark)', textTransform: 'uppercase' }}>
+          Chỉnh sửa đánh giá của bạn
+        </h5>
+        
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: 'var(--text-dark)', marginBottom: '6px' }}>Đánh giá sao:</label>
+          <StarRating value={editRating} onChange={setEditRating} size={24} />
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: 'var(--text-dark)', marginBottom: '6px' }}>Nội dung đánh giá:</label>
+          <textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: 'var(--radius-md)',
+              border: '2px solid var(--border)',
+              fontSize: '14px',
+              fontFamily: 'var(--font)',
+              outline: 'none',
+              background: 'white',
+              transition: 'border-color 0.2s',
+              color: 'var(--text-dark)'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => {
+              setIsEditing(false);
+              setEditRating(review.rating);
+              setEditContent(review.text || review.content);
+            }}
+            style={{ padding: '8px 16px', fontSize: '12px' }}
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={handleSaveEdit}
+            style={{ padding: '8px 16px', fontSize: '12px' }}
+          >
+            Lưu thay đổi
+          </button>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article ref={cardRef} style={{ marginBottom: '20px', padding: '22px 24px', background: 'var(--surface, #fff)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
@@ -414,10 +550,11 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img
-            src={review.userAvatar || `https://i.pravatar.cc/150?u=${review.id}`}
-            alt={review.userName}
-            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }}
+          <UserAvatar
+            src={review.userAvatar}
+            name={review.userName || review.reviewer_name || 'Khách ẩn danh'}
+            size={40}
+            style={{ border: '2px solid var(--border)' }}
           />
           <div>
             <h4 style={{ margin: '0', fontSize: '15px', fontWeight: '700', color: 'var(--text-dark)' }}>
@@ -429,19 +566,113 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
           </div>
         </div>
 
-        {/* Stars */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <svg key={idx} width="13" height="13" viewBox="0 0 24 24"
-              fill={idx < starsCount ? 'var(--primary)' : 'none'}
-              stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Stars */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <svg key={idx} width="13" height="13" viewBox="0 0 24 24"
+                fill={idx < starsCount ? 'var(--primary)' : 'none'}
+                stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            ))}
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-dark)', marginLeft: '4px' }}>
+              {review.rating ? Number(review.rating).toFixed(1) : ''}
+            </span>
+          </div>
+
+          {/* Actions Dropdown Button (three-dots) */}
+          {currentUser && (String(review.userId) === String(currentUser.id) || String(review.user_id) === String(currentUser.id)) && (
+            <div 
+              onMouseEnter={() => setIsMenuHovered(true)}
+              onMouseLeave={() => setIsMenuHovered(false)}
+              style={{ position: 'relative' }}
             >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          ))}
-          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-dark)', marginLeft: '4px' }}>
-            {review.rating ? Number(review.rating).toFixed(1) : ''}
-          </span>
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+                aria-label="Tùy chọn"
+              >
+                •••
+              </button>
+              
+              {isMenuHovered && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  backgroundColor: 'var(--bg-light)',
+                  border: '1.5px solid var(--border)',
+                  borderRadius: '4px',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 50,
+                  minWidth: '100px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(true);
+                      setIsMenuHovered(false);
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      color: 'var(--text-dark)',
+                      borderBottom: '1px solid var(--border)',
+                      transition: 'background-color 0.2s',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(232, 153, 81, 0.08)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDelete();
+                      setIsMenuHovered(false);
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      color: 'var(--danger)',
+                      transition: 'background-color 0.2s',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -671,10 +902,11 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
 
           {/* New Comment Input */}
           <form onSubmit={handleSendComment} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <img
-              src={currentUser?.avatar || `https://i.pravatar.cc/150?u=${currentUser?.id || 'guest'}`}
-              alt=""
-              style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, border: '2px solid var(--border)' }}
+            <UserAvatar
+              src={currentUser?.avatar}
+              name={currentUser?.name || currentUser?.full_name}
+              size={32}
+              style={{ border: '2px solid var(--border)' }}
             />
             <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
@@ -739,6 +971,94 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
         onClose={() => setLoginPrompt(false)}
         message="Bạn cần đăng nhập để sử dụng tính năng này."
       />
+
+      {showDeleteConfirm && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(42, 29, 25, 0.45)',
+              backdropFilter: 'blur(4px)',
+              zIndex: -1
+            }}
+          />
+          <div
+            className="panel glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '380px',
+              padding: '24px',
+              borderRadius: '4px',
+              boxShadow: '0 12px 32px rgba(42, 29, 25, 0.18)',
+              backgroundColor: 'var(--bg-light)',
+              border: '2px solid var(--border)',
+              textAlign: 'center'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(231, 111, 81, 0.1)',
+              display: 'grid',
+              placeItems: 'center',
+              margin: '0 auto 16px',
+              color: 'var(--danger)'
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: '900', color: 'var(--text-dark)', textTransform: 'uppercase' }}>
+              Xác nhận xóa
+            </h3>
+            <p style={{ margin: '0 0 24px', fontSize: '13.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              Bạn có chắc chắn muốn xóa bài đánh giá này không? Hành động này không thể hoàn tác.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                style={{ flex: 1, padding: '10px', fontSize: '12px' }}
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                style={{ 
+                  flex: 1, 
+                  padding: '10px', 
+                  fontSize: '12px',
+                  backgroundColor: 'var(--danger)',
+                  borderColor: 'var(--danger)',
+                  boxShadow: 'none'
+                }}
+                onClick={confirmDeleteReview}
+              >
+                Xóa bài
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </article>
   );
 }

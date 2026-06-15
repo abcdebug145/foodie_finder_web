@@ -158,7 +158,11 @@ export default function RestaurantReviewPair({ restaurant }) {
   return (
     <div className="restaurant-review-pair">
       {/* Left Column: Restaurant Info Card */}
-      <div className="restaurant-review-pair__left">
+      <Link 
+        to={`/restaurants/${restaurant.id}`} 
+        className="restaurant-review-pair__left"
+        style={{ textDecoration: 'none', color: 'inherit' }}
+      >
         <div className="card__media" style={{ aspectRatio: '16/10', borderBottom: '1px solid var(--border)' }}>
           <img
             src={restaurant.image}
@@ -236,8 +240,8 @@ export default function RestaurantReviewPair({ restaurant }) {
             ))}
           </div>
 
-          <Link
-            to={`/restaurants/${restaurant.id}`}
+          <div
+            className="restaurant-detail-btn"
             style={{
               display: 'flex',
               marginTop: 'auto',
@@ -249,22 +253,19 @@ export default function RestaurantReviewPair({ restaurant }) {
               padding: '9px 0',
               border: '1px solid var(--primary)',
               borderRadius: 'var(--radius-md)',
-              textDecoration: 'none',
               transition: 'background 0.2s',
               fontFamily: 'var(--font-mono)',
               letterSpacing: '0.4px',
               gap: '4px',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(232, 153, 81, 0.08)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
             Chi tiết & Review
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '11px', height: '11px' }}>
               <polyline points="9 18 15 12 9 6" />
             </svg>
-          </Link>
+          </div>
         </div>
-      </div>
+      </Link>
 
       {/* Right Column: Scrollable list of reviews with infinite scroll and sticky header */}
       <div ref={reviewsContainerRef} className="restaurant-review-pair__right" onScroll={handleScroll}>

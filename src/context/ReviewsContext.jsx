@@ -181,6 +181,46 @@ export function ReviewsProvider({ children }) {
     }
   }, []);
 
+  const updateReview = useCallback(async (reviewId, { rating, content }) => {
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch(`/api/v1/reviews/${reviewId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ rating, content })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        return { ok: false, error: err.detail || 'Không thể cập nhật đánh giá.' };
+      }
+      const updatedReview = await response.json();
+      setReviews(prev => prev.map(r => r.id === reviewId ? updatedReview : r));
+      return { ok: true, review: updatedReview };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: 'Lỗi kết nối máy chủ.' };
+    }
+  }, []);
+
+  const deleteReview = useCallback(async (reviewId) => {
+    const token = localStorage.getItem('ff_token');
+    try {
+      const response = await fetch(`/api/v1/reviews/${reviewId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        return { ok: false, error: err.detail || 'Không thể xóa đánh giá.' };
+      }
+      setReviews(prev => prev.filter(r => r.id !== reviewId));
+      return { ok: true };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: 'Lỗi kết nối máy chủ.' };
+    }
+  }, []);
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const getReviewsByRestaurant = useCallback(
     (restaurantId) => reviews
@@ -201,6 +241,8 @@ export function ReviewsProvider({ children }) {
     reviewsLoading,
     fetchReviews,
     addReview,
+    updateReview,
+    deleteReview,
     getReviewsByRestaurant,
     getAverageRating,
     toggleLikeReview,
@@ -209,7 +251,7 @@ export function ReviewsProvider({ children }) {
     toggleLikeComment,
   }), [
     reviews, hasMoreReviews, reviewsLoading,
-    fetchReviews, addReview, getReviewsByRestaurant, getAverageRating,
+    fetchReviews, addReview, updateReview, deleteReview, getReviewsByRestaurant, getAverageRating,
     toggleLikeReview, addCommentToReview, addReplyToComment, toggleLikeComment,
   ]);
 

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useFavorites } from '../context/FavoritesContext.jsx';
 import { useNotifications } from '../context/NotificationsContext.jsx';
 import NotificationDropdown from './NotificationDropdown.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
 export default function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -145,7 +146,7 @@ export default function Navbar() {
                   className="navbar__avatar-link"
                   onClick={() => setOpen(false)}
                 >
-                  <img src={currentUser.avatar} alt={currentUser.name} />
+                  <UserAvatar src={currentUser.avatar} name={currentUser.name} size={28} style={{ borderRadius: 'var(--radius-md)' }} />
                   <span>{currentUser.name}</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

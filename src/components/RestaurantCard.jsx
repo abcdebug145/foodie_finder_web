@@ -107,9 +107,12 @@ export default function RestaurantCard({ restaurant }) {
       >
         <div className="card__media">
           <img
-            src={randomImg}
+            src={restaurant.image || restaurant.img_url || randomImg}
             alt={restaurant.name}
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = randomImg;
+            }}
           />
           <span className="card__price">{restaurant.priceRange}</span>
           <button

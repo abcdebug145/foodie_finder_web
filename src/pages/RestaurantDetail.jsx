@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatCategory } from '../utils/category.js';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -27,6 +27,7 @@ import ReviewCard from '../components/ReviewCard.jsx';
 import ReviewForm from '../components/ReviewForm.jsx';
 import ReportModal from '../components/ReportModal.jsx';
 import { toast } from '../components/Toast.jsx';
+import { getSessionId } from '../utils/session.js';
 
 // ── Aspect labels (shared config) ────────────────────────────────────────────
 const ASPECT_KEYS = [
@@ -53,8 +54,18 @@ export default function RestaurantDetail() {
   
   const [restaurant, setRestaurant] = useState(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
+  
+  // Reviews state with pagination and stats separation
   const [restaurantReviews, setRestaurantReviews] = useState([]);
+  const [reviewsForStats, setReviewsForStats] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsSkip, setReviewsSkip] = useState(0);
+  const [hasMoreReviews, setHasMoreReviews] = useState(true);
+
+  const handleReviewUpdate = useCallback((updatedReview) => {
+    setRestaurantReviews(prev => prev.map(r => r.id === updatedReview.id ? updatedReview : r));
+    setReviewsForStats(prev => prev.map(r => r.id === updatedReview.id ? updatedReview : r));
+  }, []);
   const [showMap, setShowMap] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -256,55 +267,90 @@ export default function RestaurantDetail() {
     }
   };
 
+  // 1. Fetch all reviews for calculating statistics
   useEffect(() => {
     let active = true;
-    const fetchLocalReviews = async () => {
-      setReviewsLoading(true);
+    const fetchStatsReviews = async () => {
       try {
-        const res = await fetch(`/api/v1/reviews/?restaurant_id=${id}&limit=100`);
+        const res = await fetch(`/api/v1/reviews/?restaurant_id=${id}&limit=500`);
         if (res.ok) {
           const data = await res.json();
           if (active) {
-            setRestaurantReviews(data);
+            setReviewsForStats(data);
           }
         }
       } catch (err) {
-        console.error("Error fetching restaurant reviews:", err);
+        console.error("Error fetching reviews for stats:", err);
+      }
+    };
+    fetchStatsReviews();
+    return () => { active = false; };
+  }, [id, reviews]);
+
+  // 2. Reset pagination state when restaurant ID or global reviews change
+  useEffect(() => {
+    setRestaurantReviews([]);
+    setReviewsSkip(0);
+    setHasMoreReviews(true);
+  }, [id, reviews]);
+
+  // 3. Fetch current page of reviews
+  useEffect(() => {
+    let active = true;
+    const fetchPageReviews = async () => {
+      setReviewsLoading(true);
+      try {
+        const res = await fetch(`/api/v1/reviews/?restaurant_id=${id}&skip=${reviewsSkip}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            if (reviewsSkip === 0) {
+              setRestaurantReviews(data);
+            } else {
+              setRestaurantReviews(prev => {
+                const ids = new Set(prev.map(r => r.id));
+                const uniqueNew = data.filter(r => !ids.has(r.id));
+                return [...prev, ...uniqueNew];
+              });
+            }
+            setHasMoreReviews(data.length === 5);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching reviews page:", err);
       } finally {
         if (active) {
           setReviewsLoading(false);
         }
       }
     };
-    fetchLocalReviews();
-    return () => {
-      active = false;
-    };
-  }, [id, reviews]);
+    fetchPageReviews();
+    return () => { active = false; };
+  }, [id, reviewsSkip, reviews]);
 
   const avg = useMemo(() => {
     if (!restaurant) return 0.0;
-    if (restaurantReviews.length === 0) return restaurant.rating || 0.0;
-    const sum = restaurantReviews.reduce((acc, r) => acc + r.rating, 0);
-    return Math.round((sum / restaurantReviews.length) * 10) / 10;
-  }, [restaurantReviews, restaurant]);
+    if (reviewsForStats.length === 0) return restaurant.rating || 0.0;
+    const sum = reviewsForStats.reduce((acc, r) => acc + r.rating, 0);
+    return Math.round((sum / reviewsForStats.length) * 10) / 10;
+  }, [reviewsForStats, restaurant]);
 
   const faved = isFavorite(restaurant?.id || '');
 
   const ratingCounts = useMemo(() => {
     return [5, 4, 3, 2, 1].map((star) => ({
       star,
-      count: restaurantReviews.filter((r) => {
+      count: reviewsForStats.filter((r) => {
         const stars = Math.max(0, Math.min(5, r.rating > 5 ? Math.round(r.rating / 2) : Math.round(r.rating)));
         return stars === star;
       }).length
     }));
-  }, [restaurantReviews]);
+  }, [reviewsForStats]);
 
   // Aggregate aspect sentiments across all reviews
   const aspectStats = useMemo(() => {
     return ASPECT_KEYS.map(({ key, label, icon }) => {
-      const mentioned = restaurantReviews.filter(r => r[key]);
+      const mentioned = reviewsForStats.filter(r => r[key]);
       const pos = mentioned.filter(r => r[key] === 'positive').length;
       const neg = mentioned.filter(r => r[key] === 'negative').length;
       const neu = mentioned.filter(r => r[key] === 'neutral').length;
@@ -313,7 +359,7 @@ export default function RestaurantDetail() {
         score: total > 0 ? Math.round((pos / total) * 100) : null };
     }).filter(a => a.total > 0)
       .sort((a, b) => b.total - a.total);
-  }, [restaurantReviews]);
+  }, [reviewsForStats]);
 
   const parsedMenu = useMemo(() => {
     if (!restaurant || !restaurant.menu) return null;
@@ -469,7 +515,7 @@ export default function RestaurantDetail() {
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
               {avg.toFixed(1)}{' '}
-              <small>({restaurantReviews.length} đánh giá)</small>
+              <small>({reviewsForStats.length} đánh giá)</small>
             </span>
             <span>•</span>
             <span>{restaurant.priceRange}</span>
@@ -798,11 +844,11 @@ export default function RestaurantDetail() {
                   <div className="rating-summary__avg">
                     <strong>{avg.toFixed(1)}</strong>
                     <StarRating value={Math.round(avg)} readOnly size={18} />
-                    <span>{restaurantReviews.length} đánh giá</span>
+                    <span>{reviewsForStats.length} đánh giá</span>
                   </div>
                   <div className="rating-summary__bars">
                     {ratingCounts.map(({ star, count }) => {
-                      const pct = restaurantReviews.length ? (count / restaurantReviews.length) * 100 : 0;
+                      const pct = reviewsForStats.length ? (count / reviewsForStats.length) * 100 : 0;
                       return (
                         <div key={star} className="rating-bar">
                           <span className="rating-bar__label" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -862,9 +908,52 @@ export default function RestaurantDetail() {
                   {restaurantReviews.length === 0 ? (
                     <p className="empty">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
                   ) : (
-                    restaurantReviews.map((rv) => <ReviewCard key={rv.id} review={rv} />)
+                    restaurantReviews.map((rv) => <ReviewCard key={rv.id} review={rv} onReviewUpdate={handleReviewUpdate} />)
                   )}
                 </div>
+
+                {hasMoreReviews && (
+                  <div style={{ textAlign: 'center', marginTop: '24px', marginBottom: '16px' }}>
+                    <button
+                      onClick={() => setReviewsSkip(prev => prev + 5)}
+                      disabled={reviewsLoading}
+                      className="btn btn--ghost"
+                      style={{
+                        padding: '10px 24px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        borderRadius: '24px',
+                        borderColor: 'var(--primary)',
+                        color: 'var(--primary)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'var(--primary)';
+                        e.currentTarget.style.color = 'var(--bg-dark)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--primary)';
+                      }}
+                    >
+                      {reviewsLoading ? (
+                        <>
+                          <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <circle cx="12" cy="12" r="10" stroke="rgba(42, 29, 25, 0.2)" strokeDasharray="32" strokeDashoffset="8" />
+                          </svg>
+                          Đang tải...
+                        </>
+                      ) : (
+                        'Xem thêm đánh giá'
+                      )}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </section>
@@ -1143,6 +1232,9 @@ export default function RestaurantDetail() {
             </div>
           )}
         </aside>
+        
+        {/* Similar Restaurants Section */}
+        <SimilarRestaurantsSection restaurantId={restaurant.id} city={restaurant.city} />
       </div>
 
       {/* ── Leaflet Map Modal Overlay ───────────────────────────────── */}
@@ -1280,6 +1372,222 @@ export default function RestaurantDetail() {
           onClose={() => setShowReportModal(false)}
         />
       )}
+    </div>
+  );
+}
+
+function SimilarRestaurantsSection({ restaurantId, city }) {
+  const [similar, setSimilar] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const fetchSimilar = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('ff_token');
+      const sid = getSessionId();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      try {
+        const res = await fetch('/api/v1/recommendations/', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            search_history: [],
+            viewed_restaurant_ids: [],
+            city: city || null,
+            limit: 4,
+            session_id: sid,
+            context: 'detail',
+            restaurant_id: restaurantId
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            setSimilar(data);
+          }
+        }
+      } catch (err) {
+        console.error('[SimilarRestaurants] Fetch error:', err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (restaurantId) {
+      fetchSimilar();
+    }
+    return () => { active = false; };
+  }, [restaurantId, city]);
+
+  if (loading) {
+    return (
+      <div style={{ gridColumn: '1 / -1', marginTop: '40px', padding: '24px 0' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '900', color: 'var(--text-dark)', marginBottom: '16px' }}>
+          Nhà hàng tương tự
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} style={{ height: '260px', borderRadius: '12px', border: '1.5px solid var(--border)', background: 'var(--bg-light)', overflow: 'hidden', position: 'relative' }}>
+              <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (similar.length === 0) return null;
+
+  return (
+    <div style={{ gridColumn: '1 / -1', marginTop: '48px', padding: '24px 0', borderTop: '1px solid var(--border)' }}>
+      <h3 style={{ 
+        fontSize: '20px', 
+        fontWeight: '900', 
+        color: 'var(--text-dark)', 
+        marginBottom: '4px',
+        letterSpacing: '-0.3px'
+      }}>
+        ✨ Nhà hàng tương tự bạn có thể thích
+      </h3>
+      <p style={{ margin: '0 0 20px', fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: '500' }}>
+        Được gợi ý dựa trên đặc trưng ẩm thực và không gian tương đồng
+      </p>
+
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
+        gap: '20px' 
+      }}>
+        {similar.map(r => {
+          const scorePercent = Math.round((r.similarity_score || 0) * 100);
+          const tags = r.cuisine_tags
+            ? r.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean).slice(0, 2)
+            : [];
+          return (
+            <Link
+              key={r.id}
+              to={`/restaurants/${r.id}`}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                textDecoration: 'none',
+                background: 'var(--bg-light)',
+                border: '1.5px solid var(--border)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1), border-color 0.2s, box-shadow 0.2s',
+                position: 'relative',
+                height: '100%',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.borderColor = 'var(--primary)';
+                e.currentTarget.style.boxShadow = '0 12px 28px rgba(232,153,81,0.15)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.boxShadow = '';
+              }}
+            >
+              {/* Image */}
+              <div style={{ position: 'relative', width: '100%', height: '140px', overflow: 'hidden', background: 'var(--bg-subtle)' }}>
+                <img
+                  src={r.img_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70'}
+                  alt={r.name}
+                  loading="lazy"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={e => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70';
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  background: 'rgba(42,29,25,0.82)',
+                  backdropFilter: 'blur(6px)',
+                  color: 'var(--primary)',
+                  fontSize: '9.5px',
+                  fontWeight: '800',
+                  padding: '2px 6px',
+                  borderRadius: '5px',
+                  border: '1px solid rgba(232,153,81,0.3)',
+                  fontFamily: 'var(--font-mono)'
+                }}>
+                  {scorePercent}% tương đồng
+                </div>
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                <strong style={{
+                  fontSize: '13.5px',
+                  fontWeight: '800',
+                  color: 'var(--text-dark)',
+                  lineHeight: '1.4',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  margin: 0
+                }}>
+                  {r.name}
+                </strong>
+
+                {/* Rating & Category */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', fontSize: '11.5px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--primary)" style={{ width: '10px', height: '10px', flexShrink: 0 }}>
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                  <span style={{ fontWeight: '700', color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
+                    {Number(r.avg_rating || 0).toFixed(1)}
+                  </span>
+                  {r.category && (
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      · {r.category}
+                    </span>
+                  )}
+                </div>
+
+                {/* District/Address */}
+                {r.district && (
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    📍 {r.district}
+                  </span>
+                )}
+
+                {/* Tags */}
+                {tags.length > 0 && (
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: 'auto', paddingTop: '4px' }}>
+                    {tags.map(tag => (
+                      <span key={tag} style={{
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        color: 'var(--primary)',
+                        background: 'rgba(232,153,81,0.08)',
+                        border: '1px solid rgba(232,153,81,0.15)',
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                      }}>
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
