@@ -21,6 +21,8 @@ import PreferenceSelectorModal from './components/PreferenceSelectorModal.jsx';
 import ChatBot from './components/ChatBot.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 
+import Search from './pages/Search.jsx';
+
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [showPrefModal, setShowPrefModal] = useState(false);
@@ -61,6 +63,7 @@ export default function App() {
         <main className="app-main" style={{ position: 'relative', zIndex: 2 }}>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/restaurants/:id" element={<RestaurantDetail />} />

@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { useNavigate } from 'react-router-dom';
 import { useReviews } from '../context/ReviewsContext.jsx';
 import RestaurantReviewPair from '../components/RestaurantReviewPair.jsx';
 import RestaurantSkeleton from '../components/RestaurantSkeleton.jsx';
@@ -32,6 +33,7 @@ const CATEGORY_OPTIONS = [
 
 export default function Home() {
   const { reviews, fetchReviews, hasMoreReviews, reviewsLoading } = useReviews();
+  const navigate = useNavigate();
 
   const LIMIT = 6;
   const [restaurants, setRestaurants] = useState([]);
@@ -284,6 +286,21 @@ export default function Home() {
     }
   };
 
+  const handleSearchSubmit = () => {
+    saveSearchHistory(query);
+    // Exit animation trước khi navigate
+    gsap.to('.restaurant-review-pair', {
+      y: 100,
+      opacity: 0,
+      duration: 0.3,
+      stagger: 0.05,
+      ease: 'power2.in',
+      onComplete: () => {
+        navigate(`/search?q=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}&category=${encodeURIComponent(category)}`);
+      }
+    });
+  };
+
   // 1. Animation cho phần Hero (chạy một lần duy nhất khi mount)
   useGSAP(
     () => {
@@ -490,15 +507,14 @@ export default function Home() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    setSearchQuery(query);
-                    saveSearchHistory(query);
+                    handleSearchSubmit();
                   }
                 }}
                 aria-label="Tìm kiếm nhà hàng"
                 style={{ flex: 1, border: 'none', outline: 'none', minWidth: '0', background: 'transparent', color: 'var(--text-dark)' }}
               />
               <button 
-                onClick={() => { setSearchQuery(query); saveSearchHistory(query); }}
+                onClick={handleSearchSubmit}
                 style={{
                   border: 'none',
                   background: 'transparent',
@@ -656,20 +672,6 @@ export default function Home() {
                 <RestaurantReviewPair key={r.id} restaurant={r} />
               ))}
             </div>
-            {isLoading && (
-              <div className="home-layout-pairs" style={{ marginTop: '32px' }}>
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={`skeleton-more-${i}`} className="restaurant-review-pair" style={{ opacity: 0.6 }}>
-                    <div className="restaurant-review-pair__left" style={{ height: '320px', background: 'var(--bg-subtle)', position: 'relative', overflow: 'hidden' }}>
-                      <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
-                    </div>
-                    <div className="restaurant-review-pair__right" style={{ background: 'var(--bg-light)', position: 'relative', overflow: 'hidden' }}>
-                      <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </>
         )}
       </section>

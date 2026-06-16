@@ -101,6 +101,11 @@ export default function AdminDashboard() {
   const handleVoucherSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = { ...voucherForm };
+      if (!payload.restaurant_id || payload.restaurant_id.trim() === '') {
+        payload.restaurant_id = null;
+      }
+
       let res;
       if (editingVoucher) {
         res = await fetch(`/api/v1/vouchers/${editingVoucher.id}`, {
@@ -109,7 +114,7 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(voucherForm)
+          body: JSON.stringify(payload)
         });
       } else {
         res = await fetch('/api/v1/vouchers/', {
@@ -118,7 +123,7 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify(voucherForm)
+          body: JSON.stringify(payload)
         });
       }
       
@@ -676,6 +681,15 @@ export default function AdminDashboard() {
                                   <span style={{ color: 'var(--text-muted)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {r.review.content}
                                   </span>
+                                  <a 
+                                    href={`/restaurants/${r.review.restaurantId}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="btn btn--ghost"
+                                    style={{ marginTop: '8px', display: 'inline-block', padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border)', textDecoration: 'none' }}
+                                  >
+                                    Xem Review
+                                  </a>
                                 </div>
                               ) : (
                                 <em style={{ color: 'var(--danger)', fontSize: '13px' }}>[Review đã bị xóa]</em>
