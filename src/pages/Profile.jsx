@@ -155,7 +155,7 @@ function ProfileBookingItem({ b, handleCancelBooking }) {
             {b.items.map((item) => (
               <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-dark)' }}>
-                  {item.item_name} <small style={{ color: 'var(--text-muted)' }}>x{item.quantity}</small>
+                  {item.item_name} <small style={{ color: 'var(--text-muted)' }}>({item.unit_price ? `${item.unit_price.toLocaleString('vi-VN')}đ` : '0đ'}) x{item.quantity}</small>
                 </span>
                 <span style={{ fontWeight: '700', fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>
                   {item.unit_price ? `${(item.unit_price * item.quantity).toLocaleString('vi-VN')}đ` : '0đ'}

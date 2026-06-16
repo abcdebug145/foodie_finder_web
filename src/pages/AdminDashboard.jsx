@@ -37,15 +37,21 @@ export default function AdminDashboard() {
     category_counts: {},
     reviews_by_rating: {}
   });
-  const [ragStatus, setRAGStatus] = useState({
-    total_restaurants: 0,
-    embedded_restaurants: 0,
-    total_reviews: 0,
-    embedded_reviews: 0,
-    is_syncing: false
+  // Vouchers states
+  const [vouchers, setVouchers] = useState([]);
+  const [voucherForm, setVoucherForm] = useState({
+    code: '',
+    title: '',
+    description: '',
+    discount_type: 'percent',
+    discount_value: 0,
+    points_required: 0,
+    total_quantity: -1,
+    restaurant_id: '',
+    is_active: true,
   });
-  const [broadcastContent, setBroadcastContent] = useState('');
-  const [broadcasting, setBroadcasting] = useState(false);
+  const [editingVoucher, setEditingVoucher] = useState(null);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
   
   // Edit Restaurant modal states
   const [editingRestaurant, setEditingRestaurant] = useState(null);
@@ -78,65 +84,106 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchRAGStatus = async () => {
+  const fetchVouchers = async () => {
     try {
-      const res = await fetch('/api/v1/admin/rag-status', {
+      const res = await fetch('/api/v1/vouchers/?all=true', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setRAGStatus(data);
+        setVouchers(data);
       }
     } catch (e) {
       console.error(e);
     }
   };
 
-  const handleRAGRebuild = async () => {
+  const handleVoucherSubmit = async (e) => {
+    e.preventDefault();
     try {
-      const res = await fetch('/api/v1/admin/rag-rebuild', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        toast(data.message, 'success');
-        fetchRAGStatus();
+      let res;
+      if (editingVoucher) {
+        res = await fetch(`/api/v1/vouchers/${editingVoucher.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(voucherForm)
+        });
       } else {
-        toast('Không thể kích hoạt tiến trình đồng bộ RAG.', 'error');
+        res = await fetch('/api/v1/vouchers/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(voucherForm)
+        });
+      }
+      
+      if (res.ok) {
+        toast(`Đã ${editingVoucher ? 'cập nhật' : 'tạo'} voucher thành công!`, 'success');
+        setShowVoucherModal(false);
+        setEditingVoucher(null);
+        fetchVouchers();
+      } else {
+        const err = await res.json();
+        toast(err.detail || 'Thao tác thất bại.', 'error');
       }
     } catch (e) {
       toast('Lỗi kết nối máy chủ.', 'error');
     }
   };
 
-  const handleBroadcastSubmit = async (e) => {
-    e.preventDefault();
-    if (!broadcastContent.trim()) {
-      toast('Vui lòng nhập nội dung thông báo.', 'error');
-      return;
-    }
-    setBroadcasting(true);
-    try {
-      const res = await fetch('/api/v1/admin/broadcast-notification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ content: broadcastContent.trim() })
-      });
-      if (res.ok) {
-        toast('Đã gửi thông báo hệ thống đến tất cả người dùng thành công!', 'success');
-        setBroadcastContent('');
-      } else {
-        toast('Gửi thông báo hệ thống thất bại.', 'error');
+  const handleDeleteVoucher = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa voucher này?')) {
+      try {
+        const res = await fetch(`/api/v1/vouchers/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          toast('Đã xóa voucher thành công!', 'success');
+          fetchVouchers();
+        } else {
+          toast('Xóa thất bại.', 'error');
+        }
+      } catch (e) {
+        toast('Lỗi kết nối máy chủ.', 'error');
       }
-    } catch (e) {
-      toast('Lỗi kết nối máy chủ.', 'error');
-    } finally {
-      setBroadcasting(false);
     }
+  };
+
+  const openVoucherModal = (voucher = null) => {
+    if (voucher) {
+      setEditingVoucher(voucher);
+      setVoucherForm({
+        code: voucher.code,
+        title: voucher.title,
+        description: voucher.description || '',
+        discount_type: voucher.discount_type,
+        discount_value: voucher.discount_value,
+        points_required: voucher.points_required,
+        total_quantity: voucher.total_quantity,
+        restaurant_id: voucher.restaurant_id || '',
+        is_active: voucher.is_active,
+      });
+    } else {
+      setEditingVoucher(null);
+      setVoucherForm({
+        code: '',
+        title: '',
+        description: '',
+        discount_type: 'percent',
+        discount_value: 0,
+        points_required: 0,
+        total_quantity: -1,
+        restaurant_id: '',
+        is_active: true,
+      });
+    }
+    setShowVoucherModal(true);
   };
 
   const fetchAllRestaurants = async (q = '') => {
@@ -314,26 +361,15 @@ export default function AdminDashboard() {
         await fetchPendingRestaurants();
       } else if (activeTab === 'restaurants_all') {
         await fetchAllRestaurants(restaurantSearchQuery);
-      } else if (activeTab === 'ai_announcements') {
-        await fetchRAGStatus();
+      } else if (activeTab === 'vouchers') {
+        await fetchVouchers();
       }
       setLoading(false);
     };
     loadData();
   }, [activeTab]);
 
-  // Poll RAG sync status if syncing is active
-  useEffect(() => {
-    let interval = null;
-    if (activeTab === 'ai_announcements' && ragStatus.is_syncing) {
-      interval = setInterval(() => {
-        fetchRAGStatus();
-      }, 3000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [activeTab, ragStatus.is_syncing]);
+
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -472,12 +508,12 @@ export default function AdminDashboard() {
             Quán ăn (CRUD)
           </button>
           <button 
-            className={`chip ${activeTab === 'ai_announcements' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('ai_announcements')}
+            className={`chip ${activeTab === 'vouchers' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('vouchers')}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
-            AI & Thông báo
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            Vouchers
           </button>
         </div>
       </div>
@@ -1035,144 +1071,80 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ================= AI & ANNOUNCEMENTS TAB ================= */}
-          {activeTab === 'ai_announcements' && (
+          {/* ================= VOUCHERS TAB ================= */}
+          {activeTab === 'vouchers' && (
             <div>
-              {/* RAG Vector Embedding Sync */}
-              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '32px', marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary)' }}><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
-                  <h3 className="panel__title" style={{ fontSize: '18px', margin: 0 }}>
-                    Trợ lý AI & Vector Database (RAG)
-                  </h3>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '0 0 24px' }}>
-                  Đồng bộ hóa dữ liệu văn bản từ nhà hàng và đánh giá của người dùng thành các vector nhúng (embeddings) để Chatbot thông minh RAG hoạt động chính xác.
-                </p>
-
-                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
-                  {/* Progress Restaurant Vector */}
-                  <div style={{ flex: 1, minWidth: '260px', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '13px', marginBottom: '8px' }}>
-                      <span>Dữ liệu Nhà hàng</span>
-                      <span>{ragStatus.embedded_restaurants} / {ragStatus.total_restaurants} vector</span>
-                    </div>
-                    <div style={{ height: '10px', background: 'rgba(42,29,25,0.06)', borderRadius: '5px', overflow: 'hidden', marginBottom: '8px' }}>
-                      <div 
-                        style={{ 
-                          height: '100%', 
-                          width: `${Math.round((ragStatus.embedded_restaurants / (ragStatus.total_restaurants || 1)) * 100)}%`, 
-                          background: 'var(--primary)', 
-                          borderRadius: '5px',
-                          transition: 'width 0.5s ease' 
-                        }} 
-                      />
-                    </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                      Độ phủ: {Math.round((ragStatus.embedded_restaurants / (ragStatus.total_restaurants || 1)) * 100)}%
-                    </span>
-                  </div>
-
-                  {/* Progress Review Vector */}
-                  <div style={{ flex: 1, minWidth: '260px', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-light)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '13px', marginBottom: '8px' }}>
-                      <span>Dữ liệu Đánh giá (Review)</span>
-                      <span>{ragStatus.embedded_reviews} / {ragStatus.total_reviews} vector</span>
-                    </div>
-                    <div style={{ height: '10px', background: 'rgba(42,29,25,0.06)', borderRadius: '5px', overflow: 'hidden', marginBottom: '8px' }}>
-                      <div 
-                        style={{ 
-                          height: '100%', 
-                          width: `${Math.round((ragStatus.embedded_reviews / (ragStatus.total_reviews || 1)) * 100)}%`, 
-                          background: '#3e6d23', 
-                          borderRadius: '5px',
-                          transition: 'width 0.5s ease' 
-                        }} 
-                      />
-                    </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                      Độ phủ: {Math.round((ragStatus.embedded_reviews / (ragStatus.total_reviews || 1)) * 100)}%
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <button
-                    onClick={handleRAGRebuild}
-                    disabled={ragStatus.is_syncing}
-                    className="btn btn--primary"
-                    style={{
-                      padding: '12px 24px',
-                      borderRadius: 'var(--radius-md)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    {ragStatus.is_syncing ? (
-                      <>
-                        <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <circle cx="12" cy="12" r="10" stroke="rgba(255, 255, 255, 0.3)" strokeDasharray="32" strokeDashoffset="8" />
-                        </svg>
-                        Đang đồng bộ vector nền...
-                      </>
-                    ) : (
-                      <>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                        Đồng bộ hóa Vector RAG
-                      </>
-                    )}
-                  </button>
-                  {ragStatus.is_syncing && (
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary)' }}>
-                      Vui lòng đợi vài phút để hệ thống HuggingFace API tạo vector nhúng. Trang sẽ tự động làm mới tiến độ.
-                    </span>
-                  )}
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 className="panel__title" style={{ margin: 0, fontSize: '18px' }}>Quản lý Vouchers</h3>
+                <button
+                  onClick={() => openVoucherModal()}
+                  className="btn btn--primary"
+                  style={{ padding: '8px 16px', borderRadius: '4px', fontSize: '13px' }}
+                >
+                  + Tạo Voucher
+                </button>
               </div>
 
-              {/* Broadcast announcement */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--primary)' }}><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                  <h3 className="panel__title" style={{ fontSize: '18px', margin: 0 }}>
-                    Phát sóng Thông báo Hệ thống (Broadcast)
-                  </h3>
+              {vouchers.length === 0 ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <strong>Không có voucher nào.</strong>
                 </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '0 0 20px' }}>
-                  Gửi thông điệp hệ thống đến toàn bộ thành viên đang hoạt động trên FoodieHomie. Thông báo sẽ xuất hiện trực tiếp tại chuông thông báo Navbar và đẩy tin thời gian thực qua kênh WebSockets.
-                </p>
-
-                <form onSubmit={handleBroadcastSubmit} className="form" style={{ maxWidth: '640px' }}>
-                  <label className="form__field">
-                    <span>Nội dung thông báo (Message Content) *</span>
-                    <textarea
-                      placeholder="Ví dụ: FoodieHomie cập nhật thuật toán RAG mới gợi ý quán ăn chuẩn chỉnh hơn, trải nghiệm ngay cả nhà ơi!..."
-                      value={broadcastContent}
-                      onChange={e => setBroadcastContent(e.target.value)}
-                      rows={4}
-                      style={{ borderRadius: 'var(--radius-md)', padding: '14px', resize: 'vertical' }}
-                      required
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={broadcasting}
-                    className="btn btn--primary"
-                    style={{
-                      marginTop: '12px',
-                      padding: '12px 28px',
-                      borderRadius: 'var(--radius-md)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    {broadcasting ? 'Đang phát sóng...' : 'Phát thông báo hệ thống'}
-                  </button>
-                </form>
-              </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14.5px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-dark)' }}>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Mã & Tên</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Chiết khấu</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Điểm cần</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800' }}>Trạng thái</th>
+                        <th style={{ padding: '12px 8px', fontWeight: '800', textAlign: 'right' }}>Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vouchers.map(v => (
+                        <tr key={v.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                            <strong style={{ color: 'var(--text-dark)', display: 'block' }}>{v.code}</strong>
+                            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{v.title}</span>
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top', fontSize: '13.5px' }}>
+                            {v.discount_type === 'percent' ? `${v.discount_value}%` : `${v.discount_value.toLocaleString()}đ`}
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top', fontSize: '13.5px', color: 'var(--accent-orange)', fontWeight: 'bold' }}>
+                            {v.points_required} điểm
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'top' }}>
+                            {v.is_active ? (
+                              <span style={{ color: 'var(--accent-green)', fontWeight: 'bold', fontSize: '12px' }}>Hoạt động</span>
+                            ) : (
+                              <span style={{ color: 'var(--danger)', fontWeight: 'bold', fontSize: '12px' }}>Vô hiệu hóa</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '16px 8px', verticalAlign: 'middle', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => openVoucherModal(v)}
+                                className="btn btn--ghost"
+                                style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '4px' }}
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDeleteVoucher(v.id)}
+                                className="btn btn--primary"
+                                style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '4px', background: 'var(--danger)', borderColor: 'var(--danger)' }}
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -1345,6 +1317,163 @@ export default function AdminDashboard() {
                 </button>
                 <button type="submit" className="btn btn--primary">
                   Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= VOUCHER MODAL ================= */}
+      {showVoucherModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div 
+            style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(42, 29, 25, 0.45)', backdropFilter: 'blur(4px)' }} 
+            onClick={() => setShowVoucherModal(false)} 
+          />
+          
+          <div 
+            className="panel glass-panel" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '500px', 
+              maxHeight: '85vh', 
+              overflowY: 'auto', 
+              padding: '30px', 
+              position: 'relative', 
+              borderRadius: '4px', 
+              boxShadow: '0 12px 32px rgba(42, 29, 25, 0.18)' 
+            }}
+          >
+            <button
+              onClick={() => setShowVoucherModal(false)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                border: 'none',
+                background: 'rgba(42, 29, 25, 0.05)',
+                width: '32px',
+                height: '32px',
+                borderRadius: '2px',
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--text-muted)'
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '22px', margin: '0 0 20px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
+              {editingVoucher ? 'Cập nhật Voucher' : 'Tạo mới Voucher'}
+            </h3>
+
+            <form onSubmit={handleVoucherSubmit} className="form">
+              <label className="form__field">
+                <span>Mã Voucher (Code) *</span>
+                <input
+                  type="text"
+                  value={voucherForm.code}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, code: e.target.value.toUpperCase() })}
+                  disabled={!!editingVoucher}
+                  required
+                />
+              </label>
+
+              <label className="form__field">
+                <span>Tên Voucher (Tiêu đề) *</span>
+                <input
+                  type="text"
+                  value={voucherForm.title}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, title: e.target.value })}
+                  required
+                />
+              </label>
+
+              <label className="form__field">
+                <span>Mô tả chi tiết</span>
+                <textarea
+                  value={voucherForm.description}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, description: e.target.value })}
+                  rows={2}
+                />
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <label className="form__field">
+                  <span>Loại giảm giá *</span>
+                  <select
+                    value={voucherForm.discount_type}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, discount_type: e.target.value })}
+                    className="select"
+                    style={{ width: '100%', borderRadius: '2px', border: '2px solid var(--border)', padding: '12px 16px', background: 'var(--bg-light)', color: 'var(--text-dark)' }}
+                  >
+                    <option value="percent">Phần trăm (%)</option>
+                    <option value="fixed">Tiền mặt (VNĐ)</option>
+                  </select>
+                </label>
+
+                <label className="form__field">
+                  <span>Giá trị giảm *</span>
+                  <input
+                    type="number"
+                    value={voucherForm.discount_value}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, discount_value: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    required
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <label className="form__field">
+                  <span>Điểm yêu cầu đổi *</span>
+                  <input
+                    type="number"
+                    value={voucherForm.points_required}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, points_required: parseInt(e.target.value) || 0 })}
+                    min="0"
+                    required
+                  />
+                </label>
+
+                <label className="form__field">
+                  <span>Số lượng (-1 = vô hạn) *</span>
+                  <input
+                    type="number"
+                    value={voucherForm.total_quantity}
+                    onChange={(e) => setVoucherForm({ ...voucherForm, total_quantity: parseInt(e.target.value) || -1 })}
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className="form__field">
+                <span>ID Nhà hàng (Để trống nếu áp dụng toàn hệ thống)</span>
+                <input
+                  type="text"
+                  value={voucherForm.restaurant_id}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, restaurant_id: e.target.value })}
+                />
+              </label>
+
+              <label className="form__field" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={voucherForm.is_active}
+                  onChange={(e) => setVoucherForm({ ...voucherForm, is_active: e.target.checked })}
+                  style={{ width: 'auto' }}
+                />
+                <span style={{ margin: 0, fontWeight: 'bold' }}>Hoạt động</span>
+              </label>
+
+              <div className="form__actions" style={{ marginTop: '20px' }}>
+                <button type="button" className="btn btn--ghost" onClick={() => setShowVoucherModal(false)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn--primary">
+                  Lưu Voucher
                 </button>
               </div>
             </form>

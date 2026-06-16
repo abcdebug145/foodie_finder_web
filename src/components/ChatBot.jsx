@@ -464,6 +464,10 @@ function RestaurantCard({ restaurant }) {
 
 function ChatMessage({ msg }) {
   const isBot = msg.role === 'assistant';
+  const isEmpty = isBot && !msg.content && (!msg.restaurants || msg.restaurants.length === 0);
+
+  if (isEmpty) return null;
+
   return (
     <div style={{
       display: 'flex',
@@ -472,25 +476,6 @@ function ChatMessage({ msg }) {
       gap: 8,
       marginBottom: 16,
     }}>
-      {/* Bubble */}
-      <div style={{
-        maxWidth: '85%',
-        padding: '10px 14px',
-        borderRadius: isBot
-          ? 'var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)'
-          : 'var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)',
-        background: isBot
-          ? 'var(--bg-subtle)'
-          : 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
-        border: isBot ? '1px solid var(--border)' : 'none',
-        fontSize: 13.5,
-        lineHeight: 1.6,
-        color: isBot ? 'var(--text-dark)' : '#fff',
-        boxShadow: isBot ? 'none' : '0 2px 12px rgba(232,153,81,0.2)',
-      }}>
-        {renderMarkdown(msg.content)}
-      </div>
-
       {/* Restaurant suggestion cards */}
       {isBot && msg.restaurants?.length > 0 && (
         <div 
@@ -519,6 +504,25 @@ function ChatMessage({ msg }) {
           ))}
         </div>
       )}
+
+      {/* Bubble */}
+      <div style={{
+        maxWidth: '85%',
+        padding: '10px 14px',
+        borderRadius: isBot
+          ? 'var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)'
+          : 'var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)',
+        background: isBot
+          ? 'var(--bg-subtle)'
+          : 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
+        border: isBot ? '1px solid var(--border)' : 'none',
+        fontSize: 13.5,
+        lineHeight: 1.6,
+        color: isBot ? 'var(--text-dark)' : '#fff',
+        boxShadow: isBot ? 'none' : '0 2px 12px rgba(232,153,81,0.2)',
+      }}>
+        {renderMarkdown(msg.content)}
+      </div>
     </div>
   );
 }
@@ -557,12 +561,28 @@ export default function ChatBot() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Scroll to bottom when messages change
+  const isNearBottomRef = useRef(true);
+
+  const handleScroll = () => {
+    if (!messagesEl.current) return;
+    const el = messagesEl.current;
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+  };
+
+  // Scroll to bottom when messages change, but only if user is near bottom
   useEffect(() => {
-    if (messagesEl.current) {
+    if (messagesEl.current && isNearBottomRef.current) {
       messagesEl.current.scrollTop = messagesEl.current.scrollHeight;
     }
-  }, [messages, loading]);
+  }, [messages]);
+
+  // Force scroll to bottom when a new request starts
+  useEffect(() => {
+    if (loading && messagesEl.current) {
+      isNearBottomRef.current = true;
+      messagesEl.current.scrollTop = messagesEl.current.scrollHeight;
+    }
+  }, [loading]);
 
   // Auto-focus input when panel opens
   useEffect(() => {
@@ -802,6 +822,7 @@ export default function ChatBot() {
           {/* Messages */}
           <div
             ref={messagesEl}
+            onScroll={handleScroll}
             style={{
               flex: 1,
               overflowY: 'auto',
@@ -815,7 +836,7 @@ export default function ChatBot() {
             {messages.map(msg => (
               <ChatMessage key={msg.id} msg={msg} />
             ))}
-            {loading && (
+            {loading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].content && (!messages[messages.length - 1].restaurants || messages[messages.length - 1].restaurants.length === 0) && (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 16 }}>
                 <TypingIndicator />
               </div>
