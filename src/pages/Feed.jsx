@@ -40,12 +40,18 @@ export default function Feed() {
 
   const handleResetSeen = async () => {
     const token = localStorage.getItem('ff_token');
-    if (!token) return;
+    const sessionId = localStorage.getItem('ff_session_id') || '';
+    
+    // If not logged in and no session ID, nothing to reset
+    if (!token && !sessionId) return;
     
     try {
-      const res = await fetch('/api/v1/reviews/view/reset', {
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const url = token ? '/api/v1/reviews/view/reset' : `/api/v1/reviews/view/reset?session_id=${sessionId}`;
+      
+      const res = await fetch(url, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers
       });
       if (res.ok) {
         toast('Đã khôi phục các bài viết đã xem!', 'success');

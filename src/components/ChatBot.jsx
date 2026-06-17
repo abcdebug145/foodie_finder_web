@@ -780,7 +780,7 @@ export default function ChatBot() {
             flexShrink: 0,
           }}>
             <img
-              src="/Gemini_Generated_Image_9vesi09vesi09ves.png"
+              src="/chatbot.png"
               alt="Foodie Bot"
               style={{
                 width: 38,
@@ -1040,7 +1040,7 @@ export default function ChatBot() {
             </svg>
           ) : (
             <img
-              src="/Gemini_Generated_Image_9vesi09vesi09ves.png"
+              src="/chatbot.png"
               alt="Foodie Bot Logo"
               style={{
                 width: '100%',

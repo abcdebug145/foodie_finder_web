@@ -249,7 +249,13 @@ export default function ReviewPostCard({ review }) {
     <div ref={cardRef} className="panel glass-panel review-post" style={{ marginBottom: '20px', padding: '24px' }}>
       {/* 1. Header: Thông tin người viết, số sao (trái) và tên quán ăn (phải) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div 
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: (review.userId || review.user_id) ? 'pointer' : 'default' }}
+          onClick={() => {
+            const uId = review.userId || review.user_id;
+            if (uId) navigate(`/profile/${uId}`);
+          }}
+        >
           <UserAvatar
             src={review.userAvatar}
             name={review.userName}

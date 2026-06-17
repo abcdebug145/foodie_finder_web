@@ -1527,12 +1527,12 @@ function SimilarRestaurantsSection({ restaurantId, city }) {
               {/* Image */}
               <div style={{ position: 'relative', width: '100%', height: '140px', overflow: 'hidden', background: 'var(--bg-subtle)' }}>
                 <img
-                  src={r.img_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70'}
+                  src={r.img_url || '/image.png'}
                   alt={r.name}
                   loading="lazy"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   onError={e => {
-                    e.currentTarget.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70';
+                    e.currentTarget.src = '/image.png';
                   }}
                 />
                 <div style={{

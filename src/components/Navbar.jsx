@@ -144,10 +144,13 @@ export default function Navbar() {
                 <Link
                   to="/profile"
                   className="navbar__avatar-link"
-                  onClick={() => setOpen(false)}
+                  onClick={(e) => {
+                    // Prevent navigation if clicking the dropdown area
+                    // Actually, let's just make it a button or style it as a clickable element.
+                  }}
                 >
-                  <UserAvatar src={currentUser.avatar} name={currentUser.name} size={28} style={{ borderRadius: 'var(--radius-md)' }} />
-                  <span>{currentUser.name}</span>
+                  <UserAvatar src={currentUser.avatar} name={currentUser.name || currentUser.full_name} size={32} style={{ borderRadius: '50%', border: '2px solid rgba(255, 255, 255, 0.5)' }} />
+                  <span style={{ textTransform: 'capitalize' }}>{currentUser.name || currentUser.full_name || 'Foodie'}</span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -157,99 +160,70 @@ export default function Navbar() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     className="navbar__chevron"
-                    style={{ width: '12px', height: '12px', marginLeft: '6px', opacity: 0.8 }}
+                    style={{ width: '14px', height: '14px', marginLeft: '2px', opacity: 0.8 }}
                   >
                     <polyline points="6 9 12 15 18 9"></polyline>
                   </svg>
                 </Link>
                 <div className="navbar__dropdown">
-                  <Link
-                    to="/profile"
-                    className="navbar__dropdown-item"
-                    onClick={() => setOpen(false)}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ width: '16px', height: '16px' }}
-                    >
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                    Trang cá nhân
-                  </Link>
-                  {currentUser.is_owner && !currentUser.is_admin && (
+                  <div className="navbar__dropdown-header">
+                    <UserAvatar src={currentUser.avatar} name={currentUser.name || currentUser.full_name} size={48} style={{ borderRadius: '50%', marginBottom: '12px' }} />
+                    <div className="navbar__dropdown-name">
+                      {currentUser.name || currentUser.full_name || 'Foodie'}
+                    </div>
+                    <div className="navbar__dropdown-email">
+                      {currentUser.email}
+                    </div>
+                    {currentUser.total_points !== undefined && (
+                      <div className="navbar__dropdown-points">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        {currentUser.total_points} điểm thưởng
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="navbar__dropdown-body">
                     <Link
-                      to="/owner"
+                      to="/profile"
                       className="navbar__dropdown-item"
                       onClick={() => setOpen(false)}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        style={{ width: '16px', height: '16px' }}
-                      >
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                      </svg>
-                      Quản lý nhà hàng
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                      Trang cá nhân
                     </Link>
-                  )}
-                  {currentUser.is_admin && (
-                    <Link
-                      to="/admin"
-                      className="navbar__dropdown-item"
-                      onClick={() => setOpen(false)}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        style={{ width: '16px', height: '16px' }}
+
+                    {currentUser.is_owner && !currentUser.is_admin && (
+                      <Link
+                        to="/owner"
+                        className="navbar__dropdown-item"
+                        onClick={() => setOpen(false)}
                       >
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="9" y1="3" x2="9" y2="21"></line>
-                        <line x1="15" y1="3" x2="15" y2="21"></line>
-                        <line x1="3" y1="9" x2="21" y2="9"></line>
-                        <line x1="3" y1="15" x2="21" y2="15"></line>
-                      </svg>
-                      Quản trị viên
-                    </Link>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="navbar__dropdown-item logout-btn"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ width: '16px', height: '16px' }}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        Quản lý nhà hàng
+                      </Link>
+                    )}
+
+                    {currentUser.is_admin && (
+                      <Link
+                        to="/admin"
+                        className="navbar__dropdown-item"
+                        onClick={() => setOpen(false)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+                        Quản trị viên
+                      </Link>
+                    )}
+                  </div>
+
+                  <div className="navbar__dropdown-footer">
+                    <button
+                      onClick={handleLogout}
+                      className="navbar__dropdown-item logout-btn"
                     >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                      <polyline points="16 17 21 12 16 7"></polyline>
-                      <line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
-                    Đăng xuất
-                  </button>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                      Đăng xuất
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

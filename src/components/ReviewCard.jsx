@@ -549,7 +549,13 @@ export default function ReviewCard({ review, showRestaurantLink = false, onRevie
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div 
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: (review.userId || review.user_id) ? 'pointer' : 'default' }}
+          onClick={() => {
+            const uId = review.userId || review.user_id;
+            if (uId) navigate(`/profile/${uId}`);
+          }}
+        >
           <UserAvatar
             src={review.userAvatar}
             name={review.userName || review.reviewer_name || 'Khách ẩn danh'}

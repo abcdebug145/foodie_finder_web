@@ -67,14 +67,14 @@ function RecoCard({ restaurant, rank }) {
       {/* Image */}
       <div style={{ position: 'relative', width: '100%', height: '160px', overflow: 'hidden', background: 'var(--bg-subtle)' }}>
         <img
-          src={restaurant.img_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70'}
+          src={restaurant.img_url || '/image.png'}
           alt={restaurant.name}
           loading="lazy"
           style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }}
           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
           onError={e => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=70';
+            e.currentTarget.src = '/image.png';
           }}
         />
         {/* Match badge */}

@@ -82,7 +82,7 @@ export default function Search() {
         phone: r.phone || 'Chưa cập nhật',
         hours: r.hours || '08:00 - 22:00',
         rating: r.avg_rating || 0.0,
-        image: r.img_url || r.restaurant_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+        image: r.img_url || r.restaurant_url || '/image.png',
         tags: r.cuisine_tags ? r.cuisine_tags.split(';').map(t => t.trim()).filter(Boolean) : [],
         description: r.menu || 'Chưa có thực đơn chi tiết.',
         is_verified: r.is_verified
