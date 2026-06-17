@@ -207,6 +207,7 @@ export default function Profile() {
   const [profileUser, setProfileUser] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [openPref, setOpenPref] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -232,6 +233,11 @@ export default function Profile() {
     avatar: ''
   });
 
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: ''
+  });
+
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -251,7 +257,7 @@ export default function Profile() {
             name: userData.full_name || userData.email,
             email: userData.email,
             avatar: userData.avatar || '',
-            bio: userData.bio || 'Thành viên của Foodie Homie.',
+            bio: userData.bio || (userData.is_admin ? 'Quản trị viên hệ thống.' : userData.is_owner ? 'Chủ nhà hàng.' : 'Thành viên của Foodie Homie.'),
             total_points: userData.total_points || 0,
             follower_count: userData.follower_count || 0,
             following_count: userData.following_count || 0,
@@ -275,7 +281,7 @@ export default function Profile() {
             name: userData.full_name || userData.email,
             email: userData.email,
             avatar: userData.avatar || '',
-            bio: userData.bio || 'Thành viên của Foodie Homie.',
+            bio: userData.bio || (userData.is_admin ? 'Quản trị viên hệ thống.' : userData.is_owner ? 'Chủ nhà hàng.' : 'Thành viên của Foodie Homie.'),
             total_points: userData.total_points || 0,
             follower_count: userData.follower_count || 0,
             following_count: userData.following_count || 0,
@@ -479,6 +485,44 @@ export default function Profile() {
     }
   };
 
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('ff_token');
+    try {
+      const res = await fetch('/api/v1/users/me/password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          old_password: passwordForm.oldPassword,
+          new_password: passwordForm.newPassword
+        })
+      });
+      
+      if (res.ok) {
+        toast('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.', 'success');
+        setChangingPassword(false);
+        setPasswordForm({ oldPassword: '', newPassword: '' });
+        
+        // Force logout
+        const { logout } = await import('../context/AuthContext.jsx');
+        // Actually, we have logout via useAuth but it wasn't extracted. Let's do it directly:
+        localStorage.removeItem('ff_token');
+        localStorage.removeItem('ff_current_user');
+        sessionStorage.removeItem('ff_token');
+        window.location.href = '/login';
+      } else {
+        const err = await res.json();
+        toast(err.detail || 'Đổi mật khẩu thất bại', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      toast('Lỗi kết nối máy chủ.', 'error');
+    }
+  };
+
   if (profileLoading) {
     return (
       <div className="container section" style={{ textAlign: 'center', padding: '100px 0' }}>
@@ -617,21 +661,73 @@ export default function Profile() {
               </div>
 
               {isMe && (
-                <button 
-                  className="btn btn--ghost btn--block" 
-                  onClick={() => {
-                    setForm({
-                      name: profileUser.name,
-                      bio: profileUser.bio,
-                      avatar: profileUser.avatar
-                    });
-                    setEditing(true);
-                  }}
-                >
-                  Chỉnh sửa hồ sơ
-                </button>
+                <div style={{ display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap' }}>
+                  <button 
+                    className="btn btn--ghost" 
+                    style={{ flex: '1 1 auto', minWidth: '120px' }}
+                    onClick={() => {
+                      setForm({
+                        name: profileUser.name,
+                        bio: profileUser.bio,
+                        avatar: profileUser.avatar
+                      });
+                      setEditing(true);
+                      setChangingPassword(false);
+                    }}
+                  >
+                    Chỉnh sửa hồ sơ
+                  </button>
+                  <button 
+                    className="btn btn--ghost" 
+                    style={{ flex: '1 1 auto', minWidth: '120px' }}
+                    onClick={() => {
+                      setChangingPassword(true);
+                      setEditing(true);
+                      setPasswordForm({ oldPassword: '', newPassword: '' });
+                    }}
+                  >
+                    Đổi mật khẩu
+                  </button>
+                </div>
               )}
             </>
+          ) : changingPassword ? (
+            <form className="form" onSubmit={handlePasswordChange} style={{ width: '100%', textAlign: 'left' }}>
+              <label className="form__field">
+                <span>Mật khẩu cũ</span>
+                <input
+                  type="password"
+                  value={passwordForm.oldPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                  required
+                />
+              </label>
+              <label className="form__field">
+                <span>Mật khẩu mới</span>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  required
+                  minLength={6}
+                />
+              </label>
+              <div className="form__actions" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn--ghost" 
+                  style={{ flex: 1, padding: '10px' }}
+                  onClick={() => {
+                    setChangingPassword(false);
+                  }}
+                >
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn--primary" style={{ flex: 1, padding: '10px' }}>
+                  Lưu
+                </button>
+              </div>
+            </form>
           ) : (
             <form className="form" onSubmit={handleSave} style={{ width: '100%', textAlign: 'left' }}>
               <label className="form__field">
@@ -833,7 +929,7 @@ export default function Profile() {
                         <div>
                           <strong style={{ fontSize: '13.5px', color: 'var(--text-dark)' }}>{u.full_name || u.email}</strong>
                           <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {u.bio || 'Thành viên của Foodie Homie.'}
+                            {u.bio || (u.is_admin ? 'Quản trị viên hệ thống.' : u.is_owner ? 'Chủ nhà hàng.' : 'Thành viên của Foodie Homie.')}
                           </p>
                         </div>
                       </div>

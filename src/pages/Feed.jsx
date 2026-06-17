@@ -18,9 +18,9 @@ export default function Feed() {
     }
 
     try {
-      let url = '/api/v1/reviews/?limit=30';
+      let url = '/api/v1/reviews/?limit=30&exclude_seen=true';
       if (feedType === 'following') {
-        url = '/api/v1/community/feed?limit=30';
+        url = '/api/v1/community/feed?limit=30&exclude_seen=true';
       }
       
       const res = await fetch(url, { headers });
@@ -35,6 +35,25 @@ export default function Feed() {
       toast('Không thể kết nối máy chủ để tải bảng tin.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetSeen = async () => {
+    const token = localStorage.getItem('ff_token');
+    if (!token) return;
+    
+    try {
+      const res = await fetch('/api/v1/reviews/view/reset', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast('Đã khôi phục các bài viết đã xem!', 'success');
+        fetchFeed();
+      }
+    } catch (err) {
+      console.error(err);
+      toast('Không thể khôi phục.', 'error');
     }
   };
 
@@ -108,14 +127,17 @@ export default function Feed() {
           <span style={{ fontSize: '48px', display: 'block', marginBottom: '16px' }}>Empty Feed 📭</span>
           <h3 style={{ margin: 0, color: 'var(--text-dark)' }}>
             {feedType === 'following' 
-              ? 'Chưa có hoạt động nào từ những người bạn theo dõi.' 
-              : 'Chưa có bài viết đánh giá nào.'}
+              ? 'Chưa có bài viết mới nào từ người bạn theo dõi.' 
+              : 'Bạn đã xem hết bài viết mới.'}
           </h3>
-          <p style={{ margin: '8px 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+          <p style={{ margin: '8px 0 16px', color: 'var(--text-muted)', fontSize: '14px' }}>
             {feedType === 'following' 
               ? 'Thử chuyển sang tab "Mọi người" và follow thêm một số foodies nhé!' 
-              : 'Hãy chia sẻ trải nghiệm ẩm thực đầu tiên của bạn!'}
+              : 'Hãy chia sẻ trải nghiệm ẩm thực đầu tiên của bạn, hoặc khôi phục để xem lại các bài viết cũ!'}
           </p>
+          <button onClick={handleResetSeen} className="btn btn--primary" style={{ padding: '8px 24px', borderRadius: '20px' }}>
+            Xem lại bài cũ
+          </button>
         </div>
       )}
     </div>

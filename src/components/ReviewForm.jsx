@@ -5,6 +5,7 @@ import { useReviews } from '../context/ReviewsContext.jsx';
 import { Link } from 'react-router-dom';
 import { toast } from './Toast.jsx';
 import UserAvatar from './UserAvatar.jsx';
+import FileUpload from './FileUpload.jsx';
 
 export default function ReviewForm({ restaurantId, onSubmitSuccess }) {
   const { currentUser } = useAuth();
@@ -121,28 +122,12 @@ export default function ReviewForm({ restaurantId, onSubmitSuccess }) {
         <label style={{ display: 'block', fontWeight: '700', marginBottom: '6px', color: 'var(--text-dark)' }}>
           Đính kèm hình ảnh món ăn
         </label>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {reviewImage && (
-            <div style={{ position: 'relative', width: '60px', height: '60px', border: '1px solid var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
-              <img src={reviewImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <button 
-                type="button" 
-                onClick={() => setReviewImage('')}
-                style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', width: '16px', height: '16px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              >
-                &times;
-              </button>
-            </div>
-          )}
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={handlePhotoUpload} 
-            disabled={uploading} 
-            style={{ fontSize: '12px' }}
-          />
-        </div>
-        {uploading && <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px', display: 'block' }}>Đang tải hình ảnh lên...</span>}
+        <FileUpload 
+          onFileSelect={handlePhotoUpload}
+          uploading={uploading}
+          preview={reviewImage}
+          label="Tải ảnh món ăn của bạn (nếu có)"
+        />
       </div>
 
       {error && <p className="form__error">{error}</p>}

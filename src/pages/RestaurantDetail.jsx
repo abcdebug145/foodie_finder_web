@@ -26,6 +26,7 @@ import StarRating from '../components/StarRating.jsx';
 import ReviewCard from '../components/ReviewCard.jsx';
 import ReviewForm from '../components/ReviewForm.jsx';
 import ReportModal from '../components/ReportModal.jsx';
+import ClaimModal from '../components/ClaimModal.jsx';
 import { toast } from '../components/Toast.jsx';
 import { getSessionId } from '../utils/session.js';
 
@@ -68,6 +69,7 @@ export default function RestaurantDetail() {
   }, []);
   const [showMap, setShowMap] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   // Menu items and booking states
@@ -607,6 +609,23 @@ export default function RestaurantDetail() {
                 }}
               >
                 {verifying ? 'Đang duyệt...' : 'Xác minh ngay'}
+              </button>
+            )}
+            {currentUser && !restaurant.owner_id && (
+              <button
+                onClick={() => setShowClaimModal(true)}
+                className="btn btn--primary"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  borderRadius: '4px',
+                  background: 'var(--primary)',
+                  borderColor: 'var(--primary)',
+                  color: 'var(--bg-dark)',
+                  flexShrink: 0,
+                }}
+              >
+                Nhận sở hữu
               </button>
             )}
           </div>
@@ -1370,6 +1389,13 @@ export default function RestaurantDetail() {
           targetType="restaurant"
           targetId={restaurant.id}
           onClose={() => setShowReportModal(false)}
+        />
+      )}
+      {showClaimModal && (
+        <ClaimModal
+          restaurantId={restaurant.id}
+          restaurantName={restaurant.name}
+          onClose={() => setShowClaimModal(false)}
         />
       )}
     </div>

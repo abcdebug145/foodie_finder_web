@@ -25,6 +25,15 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [restaurantSearchQuery, setRestaurantSearchQuery] = useState('');
   const [reportFilter, setReportFilter] = useState('all'); // 'all' | 'pending' | 'resolved' | 'dismissed'
+
+  // User form states
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [userForm, setUserForm] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'owner' // 'admin' | 'owner' | 'user'
+  });
   
   // Stats & RAG states
   const [stats, setStats] = useState({
@@ -437,6 +446,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleUserSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/v1/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userForm)
+      });
+      if (res.ok) {
+        toast('Đã tạo tài khoản thành công!', 'success');
+        setShowUserForm(false);
+        setUserForm({ email: '', password: '', full_name: '', role: 'owner' });
+        fetchUsers(searchQuery);
+      } else {
+        const err = await res.json();
+        toast(err.detail || 'Không thể tạo tài khoản.', 'error');
+      }
+    } catch (e) {
+      toast('Lỗi kết nối máy chủ.', 'error');
+    }
+  };
+
   const filteredReports = reports.filter(r => {
     if (reportFilter === 'all') return true;
     return r.status === reportFilter;
@@ -772,6 +806,99 @@ export default function AdminDashboard() {
           {/* ================= USERS TAB ================= */}
           {activeTab === 'users' && (
             <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 className="panel__title" style={{ margin: 0, fontSize: '18px' }}>Quản lý Người Dùng</h3>
+                <button 
+                  className="btn btn--primary" 
+                  onClick={() => setShowUserForm(!showUserForm)}
+                  style={{ borderRadius: 'var(--radius-md)' }}
+                >
+                  {showUserForm ? 'Hủy' : '+ Tạo Tài Khoản'}
+                </button>
+              </div>
+
+              {showUserForm && (
+                <div style={{ 
+                  padding: '30px', 
+                  background: 'var(--bg-light)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '12px', 
+                  marginBottom: '24px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'rgba(232, 153, 81, 0.1)', display: 'grid', placeItems: 'center', color: 'var(--primary)' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px', color: 'var(--text-dark)', fontSize: '18px', fontWeight: '800' }}>Tạo tài khoản mới</h4>
+                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>Thêm người dùng, quản trị viên hoặc chủ nhà hàng vào hệ thống</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleUserSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <label className="form__field">
+                      <span>Họ tên</span>
+                      <input 
+                        type="text" 
+                        required 
+                        value={userForm.full_name} 
+                        onChange={e => setUserForm({...userForm, full_name: e.target.value})} 
+                        placeholder="Ví dụ: Nguyễn Văn A" 
+                        style={{ background: 'white', padding: '12px 16px' }}
+                      />
+                    </label>
+                    
+                    <label className="form__field">
+                      <span>Email</span>
+                      <input 
+                        type="email" 
+                        required 
+                        value={userForm.email} 
+                        onChange={e => setUserForm({...userForm, email: e.target.value})} 
+                        placeholder="ví dụ: admin@example.com" 
+                        style={{ background: 'white', padding: '12px 16px' }}
+                      />
+                    </label>
+
+                    <label className="form__field">
+                      <span>Mật khẩu</span>
+                      <input 
+                        type="password" 
+                        required 
+                        minLength={6} 
+                        value={userForm.password} 
+                        onChange={e => setUserForm({...userForm, password: e.target.value})} 
+                        placeholder="Tối thiểu 6 ký tự" 
+                        style={{ background: 'white', padding: '12px 16px' }}
+                      />
+                    </label>
+
+                    <label className="form__field">
+                      <span>Vai trò</span>
+                      <select 
+                        value={userForm.role} 
+                        onChange={e => setUserForm({...userForm, role: e.target.value})}
+                        style={{ background: 'white', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '2px solid var(--border)', outline: 'none', color: 'var(--text-dark)', fontSize: '14px', transition: 'border-color 0.2s', width: '100%' }}
+                      >
+                        <option value="owner">Chủ nhà hàng</option>
+                        <option value="admin">Quản trị viên (Admin)</option>
+                        <option value="user">Người dùng thường</option>
+                      </select>
+                    </label>
+
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '12px', gap: '12px' }}>
+                      <button type="button" className="btn btn--ghost" onClick={() => setShowUserForm(false)} style={{ padding: '10px 24px', borderRadius: 'var(--radius-sm)' }}>
+                        Hủy
+                      </button>
+                      <button type="submit" className="btn btn--primary" style={{ borderRadius: 'var(--radius-sm)', padding: '10px 32px' }}>
+                        Tạo Tài Khoản
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
               {/* User Search Bar */}
               <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
                 <input

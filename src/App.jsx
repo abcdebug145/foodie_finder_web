@@ -11,6 +11,7 @@ import Favorites from './pages/Favorites.jsx';
 import Profile from './pages/Profile.jsx';
 import NotFound from './pages/NotFound.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import OwnerDashboard from './pages/OwnerDashboard.jsx';
 import Feed from './pages/Feed.jsx';
 import Vouchers from './pages/Vouchers.jsx';
 import AppLoader from './components/AppLoader.jsx';
@@ -98,6 +99,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly={true}>
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/owner"
+              element={
+                <ProtectedRoute ownerOnly={true}>
+                  <OwnerDashboard />
                 </ProtectedRoute>
               }
             />

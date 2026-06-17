@@ -201,8 +201,52 @@ export default function ReviewPostCard({ review }) {
     }
   };
 
+  // Mark as seen when visible
+  const cardRef = useRef(null);
+  useEffect(() => {
+    const token = localStorage.getItem('ff_token');
+    if (!token) return;
+
+    let timeoutId;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          // If it stays visible for 1.5 seconds, mark as seen
+          timeoutId = setTimeout(() => {
+            fetch(`/api/v1/reviews/${review.id}/view`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ duration: 1 })
+            }).catch(() => {});
+            
+            // Stop observing once marked
+            if (cardRef.current) {
+              observer.unobserve(cardRef.current);
+            }
+          }, 1500);
+        } else {
+          clearTimeout(timeoutId);
+        }
+      },
+      { threshold: 0.5 } // 50% of the card must be visible
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [review.id]);
+
   return (
-    <div className="panel glass-panel review-post" style={{ marginBottom: '20px', padding: '24px' }}>
+    <div ref={cardRef} className="panel glass-panel review-post" style={{ marginBottom: '20px', padding: '24px' }}>
       {/* 1. Header: Thông tin người viết, số sao (trái) và tên quán ăn (phải) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

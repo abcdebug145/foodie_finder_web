@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useRestaurants } from '../context/RestaurantsContext.jsx';
 import { toast } from './Toast.jsx';
+import FileUpload from './FileUpload.jsx';
 
 const CATEGORIES = [
   { value: 'nha-hang', label: 'Nhà hàng' },
@@ -338,23 +339,14 @@ export default function SuggestRestaurantModal({ onClose }) {
 
           <label className="form__field">
             <span>Ảnh bìa quán</span>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
-              {form.image && (
-                <img 
-                  src={form.image} 
-                  alt="Restaurant preview" 
-                  style={{ width: '60px', height: '40px', borderRadius: '2px', objectFit: 'cover', border: '1px solid var(--border)' }} 
-                />
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={uploading}
-                style={{ fontSize: '13px' }}
+            <div style={{ marginTop: '6px' }}>
+              <FileUpload 
+                onFileSelect={handleImageUpload}
+                uploading={uploading}
+                preview={form.image}
+                label="Tải ảnh bìa quán ăn lên"
               />
             </div>
-            {uploading && <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px', display: 'block' }}>Đang tải ảnh lên...</span>}
           </label>
 
           <label className="form__field">
