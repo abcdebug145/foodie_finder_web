@@ -427,6 +427,12 @@ img {
   width: 100%;
 }
 
+.navbar__dropdown-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .navbar__dropdown-item:hover {
   background: rgba(0, 0, 0, 0.04);
   color: var(--primary) !important;
